@@ -1,30 +1,46 @@
-# MarkClip - Web to Markdown
+# MarkClip - 网页转 Markdown
 
-MarkClip is a Chrome MV3 extension that converts web pages into clean Markdown for notes, archives, and AI agent input.
+MarkClip 是一个 Chrome MV3 扩展，用来把网页正文、框选区域或整页内容转换成干净的 Markdown，方便复制到笔记、知识库或 AI Agent 对话里。
 
-## Features
+它面向中文用户设计，适合把网页资料整理到 Obsidian、Notion、Markdown 文档，或投喂给 Claude、ChatGPT 等 AI 工具。
 
-- Extract the main article content with Readability.
-- Pick one or more page regions and export only those areas.
-- Export the full page when needed.
-- Copy Markdown to the clipboard or download it as a `.md` file.
-- Optionally remove image links to reduce token usage.
-- Add frontmatter with title, source, and date.
-- Use a draggable floating panel on ordinary web pages.
-- Switch between light and dark UI themes.
+## 主要功能
 
-## Privacy
+- 智能提取网页正文，优先使用 Mozilla Readability。
+- 支持框选一个或多个页面区域，只导出你需要的内容。
+- 支持全页转换，适合网页归档。
+- 一键复制 Markdown 到剪贴板。
+- 一键下载 `.md` 文件。
+- 可选移除图片链接，减少 AI token 消耗。
+- 自动添加 `title`、`source`、`date` frontmatter，方便溯源。
+- 在普通网页显示可拖动悬浮面板，减少重复点击扩展按钮。
+- 支持深色 / 浅色界面。
 
-MarkClip runs locally in the browser. It does not upload page content to a server and does not collect user data.
+## 隐私说明
 
-See [PRIVACY.md](./PRIVACY.md) for the full privacy policy.
+MarkClip 在浏览器本地完成网页提取和 Markdown 转换。
 
-## Development
+MarkClip 不上传网页内容，不收集浏览记录，不使用远程服务器处理页面数据，也不接入统计分析服务。
 
-Load the project folder as an unpacked extension from `chrome://extensions`.
+完整隐私政策见：[PRIVACY.md](./PRIVACY.md)。
 
-Run tests with:
+## 本地安装
+
+1. 打开 Chrome 的 `chrome://extensions`。
+2. 开启右上角“开发者模式”。
+3. 点击“加载已解压的扩展程序”。
+4. 选择本项目文件夹。
+
+## 开发与测试
+
+运行测试：
 
 ```bash
 node --test
 ```
+
+## English
+
+MarkClip is a Chrome MV3 extension that converts the current web page, selected page regions, or full page content into clean Markdown locally in the browser.
+
+It does not collect user data or upload page content to any server.
