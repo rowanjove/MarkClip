@@ -6,7 +6,10 @@
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   function escapeYamlString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return JSON.stringify(String(value ?? ''))
+      .slice(1, -1)
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   }
 
   function buildMarkdownDocument({ title, source, date, body }) {

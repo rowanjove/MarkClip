@@ -6,6 +6,7 @@
     theme: 'page2md:theme',
     mode: 'page2md:mode',
     removeImages: 'page2md:removeImages',
+    localizeImages: 'page2md:localizeImages',
     hidden: 'page2md:floatingHidden',
   };
   let ui;
@@ -41,7 +42,8 @@
       [STORAGE_KEYS.theme]: 'dark',
       [STORAGE_KEYS.mode]: 'main',
       [STORAGE_KEYS.removeImages]: false,
-      [STORAGE_KEYS.hidden]: false,
+      [STORAGE_KEYS.localizeImages]: false,
+      [STORAGE_KEYS.hidden]: true,
     };
     const stored = await storageGet(defaults);
     if (stored[STORAGE_KEYS.hidden]) return;
@@ -53,8 +55,8 @@
 
     host.style.cssText = [
       'position:fixed',
-      `right:${Math.max(8, position.right)}px`,
-      `bottom:${Math.max(8, position.bottom)}px`,
+    `right:${Math.max(8, Number(position.right) || 22)}px`,
+    `bottom:${Math.max(8, Number(position.bottom) || 82)}px`,
       'z-index:2147483647',
       'font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     ].join(';');
@@ -96,7 +98,7 @@
         .busy { opacity:.68; pointer-events:none; }
       </style>
       <div class="wrap">
-        <button class="fab" type="button" title="MarkClip"><span class="fab-mark">MC</span></button>
+        <button class="fab" type="button" title="MarkClip" aria-expanded="false"><span class="fab-mark">MC</span></button>
         <section class="panel" aria-label="MarkClip">
           <div class="head">
             <div><div class="title">MarkClip</div><div class="sub">网页正文，一键转 Markdown</div></div>
@@ -106,7 +108,7 @@
           <div class="group">
             <div class="label">导出模式</div>
             <div class="seg"><button type="button" data-mode="main">主内容</button><button type="button" data-mode="pick">框选</button><button type="button" data-mode="full">全页</button></div>
-            <div class="toggle-row"><span class="toggle-label">移除图片链接，减少 token</span><button class="switch images" type="button" aria-label="移除图片"></button></div>
+            <div class="toggle-row"><span class="toggle-label">移除图片链接，减少 token</span><button class="switch images" type="button" role="switch" aria-checked="false" aria-label="移除图片"></button></div>
             <div class="hint">转换只在点击复制、下载或刷新时运行。</div>
           </div>
           <div class="actions"><button class="action primary download" type="button">下载</button><button class="action secondary copy" type="button">复制</button><button class="action mini refresh" type="button" title="刷新">↻</button></div>
@@ -136,12 +138,14 @@
         moved: false,
         mode: normalizeMode(stored[STORAGE_KEYS.mode]),
         removeImages: stored[STORAGE_KEYS.removeImages],
+        localizeImages: stored[STORAGE_KEYS.localizeImages],
         theme: stored[STORAGE_KEYS.theme],
         lastResult: null,
       },
     };
 
     bindFloatingUi();
+    clampHostPosition();
     renderFloatingUi();
   }
 
@@ -149,8 +153,11 @@
     if (!ui) return;
     ui.wrap.classList.toggle('light', ui.state.theme === 'light');
     ui.panel.classList.toggle('open', ui.state.open);
+    ui.fab.setAttribute('aria-expanded', String(ui.state.open));
     ui.buttons.forEach((button) => button.classList.toggle('active', button.dataset.mode === ui.state.mode));
     ui.imageSwitch.classList.toggle('on', ui.state.removeImages);
+    ui.imageSwitch.setAttribute('aria-checked', String(ui.state.removeImages));
+    ui.buttons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === ui.state.mode)));
     ui.count.textContent = ui.state.lastResult ? `${formatCount(ui.state.lastResult.charCount)} 字` : formatMode(ui.state.mode);
   }
 
@@ -163,11 +170,23 @@
   }
 
   function getHostPosition() {
+    clampHostPosition();
     const rect = ui.host.getBoundingClientRect();
     return {
       right: Math.max(8, window.innerWidth - rect.right),
       bottom: Math.max(8, window.innerHeight - rect.bottom),
     };
+  }
+
+  function clampHostPosition() {
+    if (!ui?.host) return;
+    const rect = ui.host.getBoundingClientRect();
+    const position = MarkClipFloatingUtils.clampPosition({
+      right: Number.parseFloat(ui.host.style.right),
+      bottom: Number.parseFloat(ui.host.style.bottom),
+    }, { width: window.innerWidth, height: window.innerHeight }, { width: rect.width, height: rect.height });
+    ui.host.style.right = `${position.right}px`;
+    ui.host.style.bottom = `${position.bottom}px`;
   }
 
   function bindFloatingUi() {
@@ -192,11 +211,16 @@
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
       if (Math.abs(dx) + Math.abs(dy) > 4) ui.state.moved = true;
-      ui.host.style.right = `${Math.max(8, startRight - dx)}px`;
-      ui.host.style.bottom = `${Math.max(8, startBottom - dy)}px`;
+      const position = MarkClipFloatingUtils.clampPosition({ right: startRight - dx, bottom: startBottom - dy }, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }, ui.host.getBoundingClientRect());
+      ui.host.style.right = `${position.right}px`;
+      ui.host.style.bottom = `${position.bottom}px`;
     });
 
-    ui.fab.addEventListener('pointerup', async (event) => {
+    async function finishPointer(event) {
+      if (!ui?.state.dragging) return;
       ui.fab.releasePointerCapture(event.pointerId);
       ui.state.dragging = false;
       if (ui.state.moved) {
@@ -206,7 +230,19 @@
 
       ui.state.open = !ui.state.open;
       renderFloatingUi();
-    });
+    }
+
+    function cancelPointer(event) {
+      if (!ui?.state.dragging) return;
+      try { ui.fab.releasePointerCapture(event.pointerId); } catch (_err) { /* already released */ }
+      ui.state.dragging = false;
+      ui.state.moved = true;
+      clampHostPosition();
+    }
+
+    ui.fab.addEventListener('pointerup', finishPointer);
+    ui.fab.addEventListener('pointercancel', cancelPointer);
+    ui.fab.addEventListener('lostpointercapture', cancelPointer);
 
     ui.buttons.forEach((button) => {
       button.addEventListener('click', async () => {
@@ -236,6 +272,11 @@
       await storageSet({ [STORAGE_KEYS.hidden]: true });
       ui.host.remove();
       ui = null;
+      try {
+        await chrome.runtime.sendMessage({ action: 'page2md:disableFloating' });
+      } catch (_err) {
+        // The UI is already hidden; the popup can retry permission cleanup.
+      }
     });
 
     ui.refreshButton.addEventListener('click', () => runFloatingAction('refresh'));
@@ -244,6 +285,8 @@
   }
 
   async function getFloatingMarkdown() {
+    const stored = await storageGet({ [STORAGE_KEYS.localizeImages]: false });
+    ui.state.localizeImages = Boolean(stored[STORAGE_KEYS.localizeImages]);
     if (ui.state.mode === 'pick') {
       const result = await window.MarkClipPick.pickMarkdown({
         closePanel: () => {
@@ -252,11 +295,12 @@
         },
         message: '点击页面区域，可多选后完成',
         removeImages: ui.state.removeImages,
+        localizeImages: ui.state.localizeImages,
         setStatus: setUiStatus,
         uiHost: ui.host,
       });
       ui.state.lastResult = result;
-      setUiStatus('框选区域 · 已提取');
+      setUiStatus(result.warnings?.[0] || '框选区域 · 已提取');
       renderFloatingUi();
       return result;
     }
@@ -264,9 +308,10 @@
     const result = await window.MarkClipExtractor.buildMarkdown({
       mode: ui.state.mode,
       removeImages: ui.state.removeImages,
+      localizeImages: ui.state.localizeImages,
     });
     ui.state.lastResult = result;
-    setUiStatus(`${result.source} · 已提取`);
+    setUiStatus(result.warnings?.[0] || `${result.source} · 已提取`);
     renderFloatingUi();
     return result;
   }

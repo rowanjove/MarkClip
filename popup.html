@@ -82,6 +82,7 @@
       font-weight: 750;
       margin-bottom: 12px;
     }
+    .cancel-btn { border: 0; background: transparent; color: var(--error); cursor: pointer; font-size: 11px; font-weight: 800; }
 
     .dot {
       width: 7px;
@@ -226,9 +227,11 @@
 
     .preview-box.visible { display: block; }
     .preview-title { display: flex; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: 11px; margin-bottom: 6px; }
-    .preview-content { max-height: 88px; overflow: hidden; white-space: pre-wrap; word-break: break-word; color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; line-height: 1.55; }
+    .preview-title input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; text-align: right; }
+    .preview-content { width: 100%; min-height: 88px; max-height: 220px; overflow: auto; resize: vertical; box-sizing: border-box; border: 0; outline: 0; background: transparent; white-space: pre-wrap; word-break: break-word; color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; line-height: 1.55; }
 
     .btn-group { display: grid; grid-template-columns: 1fr 1fr auto; gap: 9px; }
+    .btn-group.secondary-actions { grid-template-columns: 1fr 1fr; margin-top: 9px; }
 
     .btn {
       min-height: 42px;
@@ -280,7 +283,7 @@
   <div class="content">
     <div class="status">
       <span><span class="dot"></span><span id="statusText">可导出当前内容</span></span>
-      <span class="badge" id="pageTitle">主内容</span>
+      <span><button class="cancel-btn" id="btnCancel" type="button" hidden>取消</button><span class="badge" id="pageTitle">主内容</span></span>
     </div>
 
     <div class="panel">
@@ -292,11 +295,15 @@
       </div>
       <div class="row">
         <div class="row-text"><span class="row-title">移除图片链接</span><br />减少给 AI 的 token 消耗</div>
-        <button class="switch" id="removeImagesSwitch" type="button" aria-label="移除图片链接"></button>
+      <button class="switch" id="removeImagesSwitch" type="button" role="switch" aria-checked="false" aria-label="移除图片链接"></button>
+      </div>
+      <div class="row">
+        <div class="row-text"><span class="row-title">内嵌图片</span><br />将可访问图片保存为本地 data URL</div>
+      <button class="switch" id="localizeImagesSwitch" type="button" role="switch" aria-checked="false" aria-label="内嵌图片"></button>
       </div>
       <div class="row">
         <div class="row-text"><span class="row-title">页面悬浮按钮</span><br />在普通网页右下角显示快捷入口</div>
-        <button class="switch" id="floatingSwitch" type="button" aria-label="页面悬浮按钮"></button>
+      <button class="switch" id="floatingSwitch" type="button" role="switch" aria-checked="false" aria-label="页面悬浮按钮"></button>
       </div>
     </div>
 
@@ -320,9 +327,9 @@
     <div class="preview-box" id="previewBox">
       <div class="preview-title">
         <span>预览</span>
-        <span id="previewTitle"></span>
+        <input id="previewTitle" aria-label="Markdown 文件标题" />
       </div>
-      <div class="preview-content" id="previewContent"></div>
+      <textarea class="preview-content" id="previewContent" aria-label="Markdown 预览"></textarea>
     </div>
 
     <div class="btn-group">
@@ -330,12 +337,18 @@
       <button class="btn btn-secondary" id="btnCopy">复制</button>
       <button class="btn btn-ghost" id="btnConvert" title="刷新"><span id="convertIcon">↻</span></button>
     </div>
+    <div class="btn-group secondary-actions">
+      <button class="btn btn-secondary" id="btnObsidian">Obsidian</button>
+      <button class="btn btn-secondary" id="btnBatch">批量导出</button>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script src="page2md-core.js"></script>
+  <script src="obsidian-utils.js"></script>
   <script src="extension-utils.js"></script>
+  <script src="popup-state-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
