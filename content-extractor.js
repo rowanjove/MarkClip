@@ -3,7 +3,10 @@
 
   const MIN_MAIN_TEXT_LENGTH = 200;
   const CHUNK_SIZE = 20;
-  const NOISE_SELECTORS = [
+  const MAX_TEXT_LENGTH = 2_000_000;
+  const MAX_NODE_COUNT = 250_000;
+  const CONVERSION_TIMEOUT_MS = 15_000;
+  const MAIN_NOISE_SELECTORS = [
     'script', 'style', 'noscript', 'iframe', 'canvas',
     'nav', 'header', 'footer', 'aside',
     '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
@@ -13,7 +16,10 @@
     '#nav', '#navigation', '#header', '#footer', '#sidebar',
     'svg[aria-hidden]',
   ];
-  const NOISE_SELECTOR = NOISE_SELECTORS.join(',');
+  const MINIMAL_NOISE_SELECTORS = [
+    'script', 'style', 'noscript', 'iframe', 'canvas', 'svg[aria-hidden]',
+    '#page2md-floating-root', '#markclip-pick-overlay', '#markclip-pick-tip',
+  ];
   const MAIN_SELECTORS = [
     'main', '[role="main"]',
     'article', '.article', '.post', '.content',
@@ -25,43 +31,63 @@
   let turndownWithImages;
   let turndownWithoutImages;
 
-  async function yieldToMain() {
+  function now() {
+    return globalThis.performance?.now?.() ?? Date.now();
+  }
+
+  async function yieldToMain(signal) {
+    if (signal?.aborted) throw new Error('转换已取消。');
     if (globalThis.scheduler?.yield) {
       await globalThis.scheduler.yield();
+      if (signal?.aborted) throw new Error('转换已取消。');
       return;
     }
 
     await new Promise((resolve) => setTimeout(resolve, 0));
+    if (signal?.aborted) throw new Error('转换已取消。');
   }
 
   function textLength(el) {
     return (el?.textContent || '').trim().length;
   }
 
-  function cleanInPlace(root) {
-    root.querySelectorAll(NOISE_SELECTOR).forEach((el) => el.remove());
+  function cleanInPlace(root, options = {}) {
+    const profile = options.profile || 'main';
+    const selectors = profile === 'main' ? MAIN_NOISE_SELECTORS : MINIMAL_NOISE_SELECTORS;
+    root.querySelectorAll('script[type^="math/tex"], script[type^="math/asciimath"]').forEach((script) => {
+      const replacement = document.createElement('markclip-math-block');
+      replacement.textContent = script.textContent || '';
+      script.replaceWith(replacement);
+    });
+    root.querySelectorAll(selectors.join(',')).forEach((el) => el.remove());
+    if (root.id === 'page2md-floating-root' || root.id === 'markclip-pick-overlay' || root.id === 'markclip-pick-tip') {
+      root.remove();
+      return root;
+    }
+
     root.querySelectorAll('*').forEach((el) => {
       [...el.attributes].forEach((attr) => {
         const name = attr.name.toLowerCase();
         const value = attr.value.trim().toLowerCase();
-        if (name.startsWith('on') || ((name === 'href' || name === 'src') && value.startsWith('javascript:'))) {
+        if (name.startsWith('on') || name === 'srcdoc') {
           el.removeAttribute(attr.name);
         }
       });
     });
+    MarkClipUrl.normalizeDomUrls(root, options.baseUrl || document.baseURI);
     return root;
   }
 
-  function cleanClone(root) {
-    return cleanInPlace(root.cloneNode(true));
+  function cleanClone(root, options = {}) {
+    return cleanInPlace(root.cloneNode(true), options);
   }
 
-  function elementFromHtml(html) {
+  function elementFromHtml(html, options = {}) {
     const template = document.createElement('template');
     template.innerHTML = html || '';
     const wrapper = document.createElement('article');
     wrapper.append(template.content.cloneNode(true));
-    return cleanInPlace(wrapper);
+    return cleanInPlace(wrapper, { profile: 'readability', ...options });
   }
 
   function librariesReady() {
@@ -92,11 +118,17 @@
   }
 
   function findLiveMainCandidate() {
-    for (const selector of MAIN_SELECTORS) {
-      const el = document.querySelector(selector);
-      if (textLength(el) > MIN_MAIN_TEXT_LENGTH) return el;
+    return MAIN_SELECTORS
+      .map((selector) => document.querySelector(selector))
+      .filter((el) => textLength(el) > MIN_MAIN_TEXT_LENGTH)
+      .sort((left, right) => textLength(right) - textLength(left))[0] || null;
+  }
+
+  function assertDocumentSize() {
+    const nodeCount = document.getElementsByTagName('*').length;
+    if (nodeCount > MAX_NODE_COUNT) {
+      throw new Error('页面结构过大，已停止转换。请使用框选模式选择需要的区域。');
     }
-    return null;
   }
 
   function extractWithReadability() {
@@ -109,9 +141,10 @@
       }
 
       return {
-        element: elementFromHtml(article.content),
+        element: elementFromHtml(article.content, { profile: 'readability' }),
         title: article.title || document.title,
         source: 'Readability',
+        warnings: [],
       };
     } catch (_err) {
       return null;
@@ -124,14 +157,24 @@
 
     const liveCandidate = findLiveMainCandidate();
     if (liveCandidate) {
-      return { element: cleanClone(liveCandidate), title: document.title, source: '主内容' };
+      return {
+        element: cleanClone(liveCandidate, { profile: 'main' }),
+        title: document.title,
+        source: '主内容',
+        warnings: ['Readability 未能确定正文，已使用语义候选节点。'],
+      };
     }
 
-    return { element: cleanClone(document.body), title: document.title, source: '全页回退' };
+    return {
+      element: cleanClone(document.body, { profile: 'main' }),
+      title: document.title,
+      source: '全页回退',
+      warnings: ['未找到明确正文，已回退到页面内容。'],
+    };
   }
 
   function extractFullContent() {
-    return { element: cleanClone(document.body), title: document.title, source: '全页' };
+    return { element: cleanClone(document.body, { profile: 'full' }), title: document.title, source: '全页', warnings: [] };
   }
 
   function extractSelectionContent() {
@@ -145,12 +188,22 @@
       wrapper.append(selection.getRangeAt(i).cloneContents());
     }
 
-    const cleaned = cleanInPlace(wrapper);
+    const cleaned = cleanInPlace(wrapper, { profile: 'selection' });
     if (textLength(cleaned) === 0) {
       throw new Error('选区没有可转换的文本内容。');
     }
 
-    return { element: cleaned, title: document.title, source: '选区' };
+    return { element: cleaned, title: document.title, source: '选区', warnings: [] };
+  }
+
+  async function getStoredSiteRule() {
+    if (!chrome.storage?.local) return null;
+    try {
+      const stored = await chrome.storage.local.get({ siteRules: [] });
+      return MarkClipSiteRules.findSiteRule(location.href, stored.siteRules);
+    } catch (_err) {
+      return null;
+    }
   }
 
   function createTurndownService(removeImages) {
@@ -175,8 +228,70 @@
       filter: (node) => node.nodeName === 'PRE' && node.querySelector('code'),
       replacement: (_content, node) => {
         const code = node.querySelector('code');
-        const lang = (code.className.match(/language-(\S+)/) || [])[1] || '';
-        return `\n\`\`\`${lang}\n${code.textContent.trim()}\n\`\`\`\n\n`;
+        return MarkClipCode.createFencedCodeBlock(
+          MarkClipCode.getCodeText(code),
+          MarkClipCode.getCodeLanguage(code),
+        );
+      },
+    });
+
+    turndownService.addRule('plainPreCodeBlock', {
+      filter: (node) => node.nodeName === 'PRE' && !node.querySelector('code'),
+      replacement: (_content, node) => MarkClipCode.createFencedCodeBlock(
+        MarkClipCode.getCodeText(node),
+        MarkClipCode.getCodeLanguage(node),
+      ),
+    });
+
+    turndownService.addRule('strikethrough', {
+      filter: ['del', 's', 'strike'],
+      replacement: (content) => `~~${content}~~`,
+    });
+
+    turndownService.addRule('mathml', {
+      filter: (node) => ['math', 'markclip-math-block'].includes(String(node.nodeName).toLowerCase()),
+      replacement: (_content, node) => MarkClipMath.renderMath(node),
+    });
+
+    turndownService.addRule('taskListItem', {
+      filter: (node) => node.nodeName === 'LI' && node.querySelector('input[type="checkbox"]'),
+      replacement: (content, node) => {
+        const checkbox = node.querySelector('input[type="checkbox"]');
+        const marker = checkbox.checked ? '[x]' : '[ ]';
+        const prefix = node.parentNode?.nodeName === 'OL' ? '1. ' : '- ';
+        return `\n${prefix}${marker} ${content.replace(/^\s+/, '')}\n`;
+      },
+    });
+
+    turndownService.addRule('gfmTable', {
+      filter: 'table',
+      replacement: (_content, node) => {
+        const rows = Array.from(node.querySelectorAll('tr'))
+          .map((row) => Array.from(row.children).filter((cell) => ['TH', 'TD'].includes(cell.nodeName)));
+        if (!rows.length || !rows.some((row) => row.length)) return '';
+        const normalized = rows.filter((row) => row.length).map((row) => row.map((cell) => {
+          const cellMarkdown = turndownService.turndown(cell.innerHTML)
+            .trim()
+            .replace(/\|/g, '\\|')
+            .replace(/\n+/g, '<br>');
+          return cellMarkdown;
+        }));
+        const width = Math.max(...normalized.map((row) => row.length));
+        const pad = (row) => [...row, ...Array(width - row.length).fill('')];
+        const alignments = pad(rows[0]).map((cell) => {
+          const explicit = cell?.getAttribute?.('align')?.toLowerCase();
+          const style = cell?.getAttribute?.('style')?.match(/text-align\s*:\s*(left|center|right)/i)?.[1]?.toLowerCase();
+          return explicit || style || '';
+        });
+        const separator = alignments.map((alignment) => {
+          if (alignment === 'left') return ':---';
+          if (alignment === 'right') return '---:';
+          if (alignment === 'center') return ':---:';
+          return '---';
+        });
+        const lines = [`| ${pad(normalized[0]).join(' | ')} |`, `| ${pad(separator).join(' | ')} |`];
+        normalized.slice(1).forEach((row) => lines.push(`| ${pad(row).join(' | ')} |`));
+        return `\n\n${lines.join('\n')}\n\n`;
       },
     });
 
@@ -206,6 +321,10 @@
   }
 
   async function convertToMarkdown(element, options = {}) {
+    if (options.signal?.aborted) throw new Error('转换已取消。');
+    if (textLength(element) > MAX_TEXT_LENGTH) {
+      throw new Error('页面内容过大，已停止转换。请使用框选模式选择需要的区域。');
+    }
     const service = getTurndownService(Boolean(options.removeImages));
     const children = Array.from(element.childNodes || []);
 
@@ -215,45 +334,139 @@
 
     const parts = [];
     for (let i = 0; i < children.length; i += CHUNK_SIZE) {
+      if (options.signal?.aborted) throw new Error('转换已取消。');
+      if (options.deadline !== undefined && now() > options.deadline) {
+        throw new Error('转换耗时过长，已停止。请使用框选模式选择需要的区域。');
+      }
       const chunk = element.cloneNode(false);
       for (let j = i; j < Math.min(i + CHUNK_SIZE, children.length); j += 1) {
         chunk.appendChild(children[j].cloneNode(true));
       }
       parts.push(service.turndown(chunk));
-      if (i + CHUNK_SIZE < children.length) await yieldToMain();
+      if (i + CHUNK_SIZE < children.length) await yieldToMain(options.signal);
     }
 
     return parts.join('\n');
   }
 
-  function selectContent(mode) {
+  function selectContent(mode, siteRule = null) {
     if (mode === 'selection') return extractSelectionContent();
     if (mode === 'full') return extractFullContent();
+    if (siteRule?.selector) {
+      try {
+        const candidate = document.querySelector(siteRule.selector);
+        if (candidate && textLength(candidate) > MIN_MAIN_TEXT_LENGTH) {
+          const title = siteRule.titleSelector
+            ? document.querySelector(siteRule.titleSelector)?.textContent?.trim() || document.title
+            : document.title;
+          return {
+            element: cleanClone(candidate, { profile: 'main' }),
+            title,
+            source: '站点规则',
+            warnings: [],
+          };
+        }
+      } catch (_err) {
+        // An invalid site rule should fall back to the general extractor.
+      }
+    }
     return extractMainContent();
   }
 
   async function markdownFromElement(element, options = {}) {
     await ensureLibraries();
-    const body = await convertToMarkdown(element, options);
-    const markdown = Page2MDCore.buildMarkdownDocument({
-      title: options.title || document.title || 'Untitled',
-      source: location.href,
-      date: new Date().toISOString().slice(0, 10),
-      body,
+    const timings = {};
+    const warnings = [...(options.warnings || [])];
+    let imageStats = { attempted: 0, inlined: 0, failed: 0 };
+    if (options.localizeImages) {
+      const fetchImpl = typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null;
+      if (!fetchImpl || !window.MarkClipImages?.inlineImages) {
+        warnings.push('当前页面环境不支持图片内嵌，已保留原链接。');
+      } else {
+        const localized = await window.MarkClipImages.inlineImages(element, {
+          fetchImpl,
+          deadline: Date.now() + CONVERSION_TIMEOUT_MS,
+          signal: options.signal,
+        });
+        imageStats = localized.stats;
+        warnings.push(...localized.warnings);
+      }
+    }
+    const startedAt = now();
+    timings.convertStart = startedAt;
+    const body = await convertToMarkdown(element, {
+      ...options,
+      deadline: options.deadline !== undefined ? options.deadline : now() + CONVERSION_TIMEOUT_MS,
     });
+    timings.convertMs = Math.round(now() - startedAt);
+    const composeStartedAt = now();
+    const title = options.title || document.title || 'Untitled';
+    const date = new Date().toISOString().slice(0, 10);
+    const author = document.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || '';
+    const site = location.hostname || '';
+    const markdown = options.template
+      ? MarkClipTemplate.renderTemplate(options.template, MarkClipTemplate.buildVariables({
+        title,
+        url: location.href,
+        source: options.source,
+        date,
+        author,
+        site,
+        content: body,
+      }))
+      : Page2MDCore.buildMarkdownDocument({ title, source: location.href, date, body });
+    timings.composeMs = Math.round(now() - composeStartedAt);
 
-    return {
+    return MarkClipContract.createClipResult({
       markdown,
-      title: document.title || 'page',
+      title,
       charCount: markdown.length,
       source: options.source || '框选',
-    };
+      warnings,
+      diagnostics: {
+        ...(options.diagnostics || {}),
+        images: imageStats,
+      },
+      timings,
+    });
   }
 
   async function buildMarkdown(options = {}) {
+    const totalStartedAt = now();
     await ensureLibraries();
-    const { element, title, source } = selectContent(options.mode || 'main');
-    return markdownFromElement(element, { ...options, title, source });
+    await yieldToMain(options.signal);
+    if (!['selection', 'pick'].includes(options.mode)) assertDocumentSize();
+    const extractStartedAt = now();
+    const siteRule = await getStoredSiteRule();
+    const extracted = selectContent(options.mode || 'main', siteRule);
+    const { element, title, source } = extracted;
+    const warnings = [...(extracted.warnings || [])];
+    const localizeImages = Boolean(options.localizeImages || siteRule?.localizeImages);
+    const diagnostics = {
+      nodeCount: element?.querySelectorAll?.('*').length || 0,
+      textLength: textLength(element),
+      mode: options.mode || 'main',
+      siteRule: source === '站点规则',
+    };
+    const result = await markdownFromElement(element, {
+      ...options,
+      removeImages: Boolean(options.removeImages || siteRule?.removeImages),
+      template: options.template || siteRule?.template,
+      title,
+      source,
+      warnings,
+      localizeImages,
+      diagnostics,
+    });
+    return MarkClipContract.createClipResult({
+      ...result,
+      diagnostics: { ...diagnostics, ...(result.diagnostics || {}) },
+      timings: {
+        ...result.timings,
+        extractMs: Math.round(now() - extractStartedAt),
+        totalMs: Math.round(now() - totalStartedAt),
+      },
+    });
   }
 
   async function copyMarkdown(markdown) {
@@ -280,7 +493,10 @@
     const link = document.createElement('a');
     link.href = url;
     link.download = `${safeName}.md`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
