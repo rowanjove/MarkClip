@@ -1,11 +1,26 @@
 importScripts('extension-utils.js');
+importScripts('message-schema.js');
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!MarkClipMessages.isValidMessage(msg)) return false;
+  if (msg.action === 'page2md:disableFloating') {
+    (async () => {
+      try {
+        await Page2MDExtension.disableFloatingEverywhere();
+        sendResponse({ success: true });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message || '无法关闭悬浮按钮。' });
+      }
+    })();
+    return true;
+  }
   if (msg.action !== 'page2md:ensureLibraries') return false;
 
   (async () => {
     try {
-      if (!sender.tab?.id) throw new Error('No tab is available for library injection.');
+      if (sender.tab?.id === undefined || sender.tab?.id === null) {
+        throw new Error('No tab is available for library injection.');
+      }
       await Page2MDExtension.ensureLibraries(sender.tab.id);
       sendResponse({ success: true });
     } catch (err) {

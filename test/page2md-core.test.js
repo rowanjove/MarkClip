@@ -45,6 +45,18 @@ test('buildMarkdownDocument escapes backslashes in title', () => {
   assert.match(markdown, /title: "C:\\\\Users\\\\test"/);
 });
 
+test('buildMarkdownDocument escapes control characters in YAML scalars', () => {
+  const markdown = buildMarkdownDocument({
+    title: 'line 1\nline 2\t"quoted"',
+    source: 'https://example.com',
+    date: '2026-01-01',
+    body: 'ok',
+  });
+
+  assert.match(markdown, /title: "line 1\\nline 2\\t\\"quoted\\""/);
+  assert.doesNotMatch(markdown, /title: "line 1\nline 2/);
+});
+
 test('buildMarkdownDocument preserves markdown images because DOM conversion handles image removal', () => {
   const markdown = buildMarkdownDocument({
     title: 'T',

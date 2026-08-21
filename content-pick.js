@@ -169,7 +169,7 @@
         const wrapper = document.createElement('article');
         selected.forEach((target, index) => {
           if (index > 0) wrapper.appendChild(document.createElement('hr'));
-          wrapper.appendChild(cleanClone(target));
+          wrapper.appendChild(cleanClone(target, { profile: 'pick' }));
         });
         cleanup();
         resolve(wrapper);
@@ -240,10 +240,11 @@
 
   async function pickMarkdown(options = {}) {
     const target = await startPickMode(options);
-    return markdownFromElement(cleanClone(target), {
+    return markdownFromElement(cleanClone(target, { profile: 'pick' }), {
       title: document.title,
       source: '框选',
       removeImages: options.removeImages,
+      localizeImages: options.localizeImages,
     });
   }
 
