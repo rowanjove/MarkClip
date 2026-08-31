@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { STORAGE_DEFAULTS, STORAGE_KEYS, withOptionalOrigins } = require('../popup-state-utils.js');
 
 test('popup preferences include the persisted floating visibility state', () => {
+  assert.equal(STORAGE_DEFAULTS[STORAGE_KEYS.theme], 'light');
   assert.equal(STORAGE_DEFAULTS[STORAGE_KEYS.hidden], true);
   assert.equal(STORAGE_DEFAULTS[STORAGE_KEYS.localizeImages], false);
 });

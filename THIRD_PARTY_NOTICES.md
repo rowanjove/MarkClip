@@ -1,6 +1,6 @@
 # Third-party notices
 
-MarkClip bundles the following libraries locally. They do not make network requests as part of conversion.
+页摘 bundles the following libraries locally. They do not make network requests as part of conversion.
 
 ## Mozilla Readability
 

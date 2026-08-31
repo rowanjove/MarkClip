@@ -39,7 +39,7 @@ function toFriendlyAccessError(message = '') {
     message.includes('This page cannot be scripted') ||
     message.includes('Missing host permission')
   ) {
-    return '当前页面不允许 MarkClip 读取内容。请换普通网页；如果是本地文件，请在扩展详情中开启“允许访问文件网址”。';
+    return '当前页面不允许页摘读取内容。请换普通网页；如果是本地文件，请在扩展详情中开启“允许访问文件网址”。';
   }
 
   return message || '无法访问当前页面。';

@@ -1,6 +1,6 @@
 # 站点规则
 
-MarkClip 支持把站点级规则保存在 `chrome.storage.local` 的 `siteRules` 数组中。规则只使用精确域名/子域匹配和 CSS selector，不执行任意脚本。
+页摘支持把站点级规则保存在 `chrome.storage.local` 的 `siteRules` 数组中。规则只使用精确域名/子域匹配和 CSS selector，不执行任意脚本。
 
 示例：
 

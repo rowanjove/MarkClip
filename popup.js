@@ -1,12 +1,14 @@
-let currentMarkdown = '';
+let currentMarkdown = null;
 let currentTitle = '';
+let resultMeta = null;
 let activeOperationId = null;
 let activeTabId = null;
 let extractionMode = 'main';
 let removeImages = false;
 let localizeImages = false;
 let floatingEnabled = false;
-let theme = 'dark';
+let theme = 'light';
+let busy = false;
 
 const { STORAGE_DEFAULTS, STORAGE_KEYS } = MarkClipPopupState;
 const $ = (id) => document.getElementById(id);
@@ -24,21 +26,56 @@ function showError(message) {
   el.classList.add('visible');
 }
 
+function currentResultMeta(context = {}) {
+  return {
+    mode: extractionMode,
+    removeImages,
+    localizeImages,
+    ...context,
+  };
+}
+
+function resultMatchesContext(tab) {
+  return Boolean(
+    resultMeta &&
+    resultMeta.mode === extractionMode &&
+    resultMeta.removeImages === removeImages &&
+    resultMeta.localizeImages === localizeImages &&
+    resultMeta.tabId === tab?.id &&
+    resultMeta.url === (tab?.url || ''),
+  );
+}
+
+function invalidateResult(message = '设置已改变，请重新提取') {
+  currentMarkdown = null;
+  resultMeta = null;
+  $('stats').classList.remove('visible');
+  $('previewBox').classList.remove('visible');
+  if (message) $('statusText').textContent = message;
+}
+
 function hideError() {
   $('errorMsg').classList.remove('visible');
 }
 
-function setBusy(busy) {
-  ['btnDownload', 'btnCopy', 'btnConvert', 'btnObsidian', 'btnBatch'].forEach((id) => {
-    $(id).classList.toggle('loading', busy);
-    $(id).disabled = busy;
+function setBusy(nextBusy) {
+  busy = nextBusy;
+  document.body.setAttribute('aria-busy', String(nextBusy));
+  ['btnDownload', 'btnCopy', 'btnConvert', 'btnObsidian', 'btnBatch', 'themeToggle'].forEach((id) => {
+    $(id).classList.toggle('loading', nextBusy);
+    $(id).disabled = nextBusy;
+  });
+  document.querySelectorAll('.mode-btn, .switch').forEach((control) => {
+    control.disabled = nextBusy;
   });
   const cancelButton = $('btnCancel');
   if (cancelButton) {
-    cancelButton.hidden = !busy;
-    cancelButton.disabled = !busy;
+    const canCancel = nextBusy && Boolean(activeOperationId);
+    cancelButton.hidden = !canCancel;
+    cancelButton.disabled = !canCancel;
   }
-  $('convertIcon').textContent = busy ? '...' : '↻';
+  $('convertIcon').textContent = nextBusy ? '...' : '↻';
+  document.querySelector('.status-dot')?.classList.toggle('busy', nextBusy);
 }
 
 function setTheme(nextTheme) {
@@ -62,9 +99,10 @@ function renderPrefs() {
   setSwitch($('floatingSwitch'), floatingEnabled);
 }
 
-function renderResult(markdown, title, charCount, warnings = []) {
+function renderResult(markdown, title, charCount, warnings = [], tab = null) {
   currentMarkdown = markdown;
   currentTitle = title;
+  resultMeta = currentResultMeta({ tabId: tab?.id, url: tab?.url || '' });
 
   const lines = markdown.split('\n').length;
   const words = Math.round(charCount / 1.8);
@@ -77,7 +115,7 @@ function renderResult(markdown, title, charCount, warnings = []) {
   $('previewTitle').value = title;
   $('pageTitle').textContent = `${formatMode(extractionMode)} · ${formatCount(charCount)} 字`;
   $('previewBox').classList.add('visible');
-  $('statusText').textContent = warnings.length ? warnings[0] : '已提取当前内容';
+  $('statusText').textContent = warnings.length ? warnings[0] : '已提取，可复制或保存';
 }
 
 function formatCount(count) {
@@ -86,9 +124,9 @@ function formatCount(count) {
 
 function formatMode(mode) {
   if (mode === 'selection') return '选区';
-  if (mode === 'pick') return '框选';
-  if (mode === 'full') return '全页';
-  return '主内容';
+  if (mode === 'pick') return '选择区域';
+  if (mode === 'full') return '整页';
+  return '正文';
 }
 
 function normalizeMode(mode) {
@@ -104,6 +142,7 @@ async function getActiveTab() {
 async function requestMarkdown(tabId) {
   activeTabId = tabId;
   activeOperationId = globalThis.crypto?.randomUUID?.() || `popup-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  setBusy(true);
   return Page2MDExtension.sendTabMessage(tabId, {
     action: 'getMarkdown',
     id: activeOperationId,
@@ -139,7 +178,7 @@ async function startPickAction(after) {
     }).catch(() => {
       // The popup may close while the user is picking on the page.
     });
-    showToast('请在页面中框选区域');
+    showToast('请在页面中选择区域');
     window.close();
   } catch (err) {
     showError(`× ${err.message}`);
@@ -147,6 +186,7 @@ async function startPickAction(after) {
 }
 
 async function extractPage() {
+  if (busy) return '';
   hideError();
   setBusy(true);
 
@@ -154,13 +194,13 @@ async function extractPage() {
     const tab = await getActiveTab();
     await Page2MDExtension.ensureContentScripts(tab.id);
     if (extractionMode === 'pick') {
-      showError('框选模式请直接点击“下载”或“复制”，然后在页面中选择区域。');
+      showError('选择区域请直接点击“复制”或“保存”，然后在页面中选择内容。');
       return '';
     }
     const response = await requestMarkdown(tab.id);
     if (!response?.success) throw new Error(response?.error || '提取失败，请刷新页面后重试。');
     if (typeof response.charCount !== 'number') throw new Error('提取结果缺少字符数，请重新加载扩展后再试。');
-    renderResult(response.markdown, response.title, response.charCount, response.warnings || []);
+    renderResult(response.markdown, response.title, response.charCount, response.warnings || [], tab);
     return response.markdown;
   } catch (err) {
     showError(`× ${err.message}`);
@@ -174,25 +214,38 @@ async function extractPage() {
 
 async function ensureMarkdown() {
   syncPreviewState();
-  if (currentMarkdown) return currentMarkdown;
+  let tab = null;
+  try {
+    tab = await getActiveTab();
+  } catch (_err) {
+    // extractPage() will surface the user-facing tab error below.
+  }
+  if (resultMatchesContext(tab) && currentMarkdown !== null) return currentMarkdown;
   return extractPage();
 }
 
 function syncPreviewState() {
   const preview = $('previewContent');
   const title = $('previewTitle');
-  if (preview?.value) currentMarkdown = preview.value;
-  if (title?.value?.trim()) currentTitle = title.value.trim();
+  if (!resultMeta || !preview || !title) return;
+  if (preview.value !== currentMarkdown || title.value.trim() !== currentTitle) {
+    currentMarkdown = preview.value;
+    currentTitle = title.value.trim() || currentTitle;
+  }
 }
 
 async function copyMarkdown() {
+  if (busy) return;
   if (extractionMode === 'pick') {
     await startPickAction('copy');
     return;
   }
 
   const markdown = await ensureMarkdown();
-  if (!markdown) return;
+  if (markdown === null || markdown === '') {
+    showError('没有可复制的内容，请先提取正文。');
+    return;
+  }
 
   try {
     await navigator.clipboard.writeText(markdown);
@@ -210,13 +263,17 @@ async function copyMarkdown() {
 }
 
 async function downloadMarkdown() {
+  if (busy) return;
   if (extractionMode === 'pick') {
     await startPickAction('download');
     return;
   }
 
   const markdown = await ensureMarkdown();
-  if (!markdown) return;
+  if (markdown === null || markdown === '') {
+    showError('没有可保存的内容，请先提取正文。');
+    return;
+  }
 
   triggerMarkdownDownload(markdown, currentTitle);
   showToast('开始下载...');
@@ -237,8 +294,9 @@ function triggerMarkdownDownload(markdown, title) {
 }
 
 async function openObsidianMarkdown() {
+  if (busy) return;
   if (extractionMode === 'pick') {
-    showError('Obsidian 导出暂不支持框选模式，请先切换到主内容或全页。');
+    showError('发送到 Obsidian 暂不支持选择区域，请切换到正文或整页。');
     return;
   }
 
@@ -261,8 +319,9 @@ async function openObsidianMarkdown() {
 }
 
 async function batchExport() {
+  if (busy) return;
   if (extractionMode === 'pick') {
-    showError('批量导出不支持框选模式，请切换到主内容或全页。');
+    showError('批量保存不支持选择区域，请切换到正文或整页。');
     return;
   }
   setBusy(true);
@@ -354,34 +413,34 @@ async function initPrefs() {
     }
   }
   renderPrefs();
+  document.querySelector('.mode-btn.active')?.focus({ preventScroll: true });
 }
 
 document.querySelectorAll('.mode-btn').forEach((button) => {
   button.addEventListener('click', async () => {
     extractionMode = button.dataset.mode;
-    currentMarkdown = '';
+    invalidateResult(extractionMode === 'pick' ? '点击复制或保存后选择区域' : '设置已改变，请重新提取');
     await persistPrefs({ [STORAGE_KEYS.mode]: extractionMode });
     renderPrefs();
     $('pageTitle').textContent = formatMode(extractionMode);
-    $('statusText').textContent = extractionMode === 'pick' ? '点击复制或下载后框选区域' : '可导出当前内容';
-    showToast('模式已切换');
+    showToast('提取范围已切换');
   });
 });
 
 $('removeImagesSwitch').addEventListener('click', async () => {
   removeImages = !removeImages;
-  currentMarkdown = '';
+  invalidateResult();
   await persistPrefs({ [STORAGE_KEYS.removeImages]: removeImages });
   renderPrefs();
-  showToast(removeImages ? '将移除图片链接' : '将保留图片链接');
+  showToast(removeImages ? '图片链接将被移除' : '图片链接将被保留');
 });
 
 $('localizeImagesSwitch').addEventListener('click', async () => {
   localizeImages = !localizeImages;
-  currentMarkdown = '';
+  invalidateResult();
   await persistPrefs({ [STORAGE_KEYS.localizeImages]: localizeImages });
   renderPrefs();
-  showToast(localizeImages ? '将尝试内嵌图片' : '将保留图片链接');
+  showToast(localizeImages ? '将尝试内嵌图片' : '图片将保留为链接');
 });
 
 $('floatingSwitch').addEventListener('click', async () => {
@@ -390,7 +449,7 @@ $('floatingSwitch').addEventListener('click', async () => {
     await persistPrefs({ [STORAGE_KEYS.hidden]: !floatingEnabled });
     await notifyFloatingVisibility();
     renderPrefs();
-    showToast(floatingEnabled ? '悬浮按钮已开启' : '悬浮按钮已隐藏');
+    showToast(floatingEnabled ? '页面快捷入口已开启' : '页面快捷入口已关闭');
   } catch (err) {
     floatingEnabled = false;
     await persistPrefs({ [STORAGE_KEYS.hidden]: true });
@@ -405,7 +464,7 @@ $('themeToggle').addEventListener('click', async () => {
 });
 
 $('btnConvert').addEventListener('click', () => {
-  currentMarkdown = '';
+  invalidateResult('正在重新提取');
   extractPage();
 });
 $('btnCopy').addEventListener('click', copyMarkdown);
@@ -417,15 +476,27 @@ $('previewContent').addEventListener('input', syncPreviewState);
 $('previewTitle').addEventListener('input', syncPreviewState);
 
 document.addEventListener('keydown', (event) => {
+  const editing = event.target?.matches?.('textarea, input, [contenteditable="true"]');
+  if (event.key === 'Escape' && !editing) {
+    const advancedActions = $('advancedActions');
+    if (advancedActions?.open) {
+      advancedActions.open = false;
+      event.preventDefault();
+      return;
+    }
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-    currentMarkdown = '';
+    if (editing) return;
+    invalidateResult('正在重新提取');
     extractPage();
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+    if (editing) return;
     event.preventDefault();
     copyMarkdown();
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    if (editing) return;
     event.preventDefault();
     downloadMarkdown();
   }
@@ -433,5 +504,5 @@ document.addEventListener('keydown', (event) => {
 
 initPrefs().then(() => {
   $('pageTitle').textContent = formatMode(extractionMode);
-  $('statusText').textContent = extractionMode === 'pick' ? '点击复制或下载后框选区域' : '可导出当前内容';
+  $('statusText').textContent = extractionMode === 'pick' ? '点击复制或保存后选择区域' : '准备提取正文';
 }).catch((err) => showError(`× ${err.message}`));

@@ -57,7 +57,7 @@ function startFixtureServer() {
   });
 }
 
-test('stable Chrome loads MarkClip through CDP and renders the popup shell', { skip: !shouldRun }, async () => {
+test('stable Chrome loads 页摘 through CDP and renders the popup shell', { skip: !shouldRun }, async () => {
   const { chromium } = require('playwright');
   const root = path.resolve(__dirname, '../..');
   const chromePath = findChrome();
@@ -90,7 +90,7 @@ test('stable Chrome loads MarkClip through CDP and renders the popup shell', { s
     const page = await context.newPage();
     await page.goto(`chrome-extension://${id}/popup.html`);
     await page.locator('h1').waitFor({ state: 'visible', timeout: 5000 });
-    assert.equal(await page.locator('h1').innerText(), 'MarkClip');
+    assert.equal(await page.locator('h1').innerText(), '页摘');
     assert.equal(await page.locator('#btnObsidian').count(), 1);
     assert.equal(await page.locator('#btnBatch').count(), 1);
     assert.equal(await page.locator('#localizeImagesSwitch').getAttribute('role'), 'switch');
