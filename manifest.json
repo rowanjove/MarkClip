@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "页摘 - 网页摘录为 Markdown",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "在浏览器本地摘录网页内容，转换为 Markdown，方便复制或保存。",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
   "optional_host_permissions": ["<all_urls>"],
