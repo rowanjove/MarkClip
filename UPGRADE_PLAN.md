@@ -1,18 +1,18 @@
-# MarkClip 统一升级计划
+# 页摘统一升级计划
 
 > 目标：在保持“本地处理、轻量、网页转 Markdown”核心定位的前提下，把当前可用的 MVP 升级成权限合理、输出可信、可回归验证、可持续迭代的浏览器扩展。
 >
 > 计划来源：仓库代码审查、现有测试结果，以及对 [MarkDownload](https://github.com/deathau/markdownload)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[MarkSnip](https://github.com/daxid/MarkSnip) 的实现和测试体系对标。
 
-## 实施状态（2026-08-22）
+## 实施状态（2026-08-31）
 
-核心 Stage 0–3 与 Stage 4 产品能力已落地并通过 55 项本地单元/集成测试（53 通过、2 个默认跳过的浏览器测试）、Chromium 扩展 E2E、稳定版 Chrome CDP E2E、打包和安全门禁。官方 branded Chrome 的命令行侧载已被移除，稳定 Chrome smoke 改用隔离 profile + `Extensions.loadUnpacked` 完成；Edge 发布仍可按同一手工清单复核。
+核心 Stage 0–3 与 Stage 4 产品能力已落地。本地测试共 83 项（80 通过、3 个浏览器测试默认跳过），另行执行 Chromium 扩展 E2E、稳定版 Chrome CDP smoke、打包和安全门禁。浏览器检查仍保留为显式门禁，未在每次普通检查中默认启动；Edge 发布仍需按同一手工清单在目标机器复核。
 
 ## GitHub 对标提炼
 
 - [MarkDownload](https://github.com/deathau/markdownload)：把正文识别、DOM 清洗、Turndown 转换和导出选项分层；本项目对应落地为 `ClipRequest`/`ClipResult`、独立 URL/代码块/GFM helper 和可解释 warnings。
 - [Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)：模板变量、站点规则和本地目标是高复用能力；本项目落地为安全模板过滤器、host/selector 规则、Obsidian URI 与本地图片内嵌。
-- [MarkSnip](https://github.com/daxid/MarkSnip)：选区/框选必须尊重用户明确选择，并对动态页面提供稳定回退；本项目落地为 range selection、pick selection 合并、SPA 当前 URL 与 Readability fallback diagnostics。
+- [MarkSnip](https://github.com/daxid/MarkSnip)：选区/选择区域必须尊重用户明确选择，并对动态页面提供稳定回退；本项目落地为 range selection、pick selection 合并、SPA 当前 URL 与 Readability fallback diagnostics。
 
 共同经验：转换核心应保持纯本地、可测试、可解释；权限和导出目标必须显式启用；公网网页只用于低频 smoke，不能替代固定 fixture 和真实扩展 E2E。
 
@@ -21,7 +21,7 @@
 ### 当前基线
 
 - Manifest V3，无构建流程，主要逻辑集中在几个浏览器脚本中。
-- 支持主内容、框选、全页、复制、下载、图片移除和悬浮按钮。
+- 支持正文、选择区域、整页、复制、下载、图片移除和悬浮按钮。
 - 计划生成前本地 `node --test` 有 21 项测试，当前全部通过；所有 JavaScript 通过语法检查。
 - 依赖以 vendored `lib/readability.js` 和 `lib/turndown.js` 形式存在，缺少版本清单和自动升级审计。
 - 本计划生成时工作树基线干净；后续实现变更均以本文件验收项为准。
@@ -139,7 +139,7 @@ Deliver（预览、复制、下载、未来的其他目标）
 - [x] 统一 `sendTabMessage` Promise 封装，区分：无 receiver、页面不可脚本化、扩展重载、超时和业务错误。
 - [x] 对 runtime message 做 action/mode/payload schema 校验，未知 action 直接拒绝。
 - [x] 给并发的 `ensureBootstrap/ensureLibraries` 增加 tab 级锁，避免重复注入。
-- [x] 覆盖 SPA 导航、刷新、Popup 关闭、页面销毁和重复启动框选；增加 tab 级注入锁、消息超时和可取消转换，扩展热重载由重新 ping/bootstrap 路径兜底。
+- [x] 覆盖 SPA 导航、刷新、Popup 关闭、页面销毁和重复启动选择区域；增加 tab 级注入锁、消息超时和可取消转换，扩展热重载由重新 ping/bootstrap 路径兜底。
 - [x] 统一下载 URL 生命周期：点击后延迟 revoke，并处理失败回调。
 - [x] 浮窗交互补齐：
   - `pointercancel`、`lostpointercapture`；
@@ -162,7 +162,7 @@ Deliver（预览、复制、下载、未来的其他目标）
 - [x] 建立三层测试：unit、JSDOM integration、Chromium extension E2E 和 packaging smoke 均已加入。
   - unit：URL、文件名、YAML、selection merge、位置约束、消息 schema；
   - integration：真实 Readability/Turndown + JSDOM fixture；
-  - E2E：真实 Chromium 扩展、Popup、浮窗、复制、下载、框选和受限页。
+  - E2E：真实 Chromium 扩展、Popup shell 和打包 smoke；新增真实浮窗图标资源加载、4 种视口各 5 个位置、拖动期间面板边界和 Escape 焦点恢复检查。浮窗测试模拟偏好存储并注入真实脚本，尚未覆盖完整权限申请与导出链路；选择区域和转换边界另由 JSDOM/集成测试覆盖，受限页仍需手工或后续浏览器 E2E。
 - [x] E2E 使用本地 fixture 和固定 route，不把公网可用性作为 CI 必要条件；CI 会安装 Chromium 并运行真实扩展 smoke。
 - [x] 增加低频 live smoke，仅用于发现真实网页变化，失败不阻塞普通 PR。
 - [x] 增加安全检查：manifest 权限、消息和 URL allowlist、vendored hash、远程脚本扫描和 `npm audit` 已纳入检查。
@@ -171,7 +171,7 @@ Deliver（预览、复制、下载、未来的其他目标）
   - URL 协议 allowlist；
   - 第三方库版本/hash 和许可证审计。
 - [x] 增加发布文件：LICENSE、第三方声明、CHANGELOG、支持浏览器说明、限制说明、故障排查和贡献指南已完成。
-- [x] 发布前进行 Chrome/Edge smoke：Playwright Chromium 与稳定 Chrome CDP smoke 已通过；Edge 提供同等手工清单，若作为发布目标可在目标机器复核。
+- [x] 发布前进行 Chrome/Edge smoke：Playwright Chromium Popup shell 和稳定 Chrome CDP smoke 已通过；Edge 提供同等手工清单，需在目标机器复核。
 
 交付物：每个版本可重现构建、可审计依赖、可回滚，有明确发布门槛。
 
@@ -188,6 +188,29 @@ Deliver（预览、复制、下载、未来的其他目标）
 - [x] Obsidian 文件名/文件夹模板与 URI 集成，保持本地优先。
 - [x] 批量标签页和批量 Markdown 导出；默认仅在用户主动点击并授权后运行。
 - [x] 可选图片本地化；默认关闭、失败保留原链接，不联网上传、不依赖远程后端。
+
+### Stage 5：品牌和界面去 AI 化（2026-08-31）
+
+**目的：** 让扩展更像一个安静、可信的本地工具，降低弹窗、页面浮层和选区提示中的视觉噪声，同时给后续发布保留清晰的品牌边界。
+
+本轮已完成：
+
+- [x] 对外名称改为“页摘”，副标题统一为“网页摘录为 Markdown”；保留 `MarkClip*` JavaScript 命名空间和 `page2md:*` 存储键，避免升级时丢失已有设置。
+- [x] 使用纸张、折角和横线组成的本地 SVG 风格 PNG 图标，提供 16/48/128 三种尺寸；图标不使用机器人、星光、渐变光晕或对话气泡等 AI 视觉符号。
+- [x] 重排 Popup：固定底部操作栏，内容区独立滚动，预览结果可编辑，状态、错误和取消操作有明确位置；去掉大面积渐变、过度圆角和胶囊式装饰，并尊重 `prefers-reduced-motion`。
+- [x] 重做页面快捷入口：使用小型纸张图标、窄面板、平面分隔线和低饱和绿色强调色；面板按视口自动翻转并限制在可见区域内。
+- [x] 重做选择区域提示：选区边框、已选标记和操作条使用同一套中性绿色，不再使用高亮蓝和大面积光晕；页面元素的 `data-action` 不会误触发取消。
+- [x] Popup、页面浮层和设置变化共享忙碌状态与偏好同步，避免重复点击、旧结果复用和两个入口状态不一致。
+- [x] 建立 [DESIGN_GUIDE.md](./DESIGN_GUIDE.md)，固定品牌边界、色彩/尺寸基线、组件行为和无障碍验收项，作为后续视觉改动的审查依据。
+
+后续升级建议：
+
+- [x] 基于本轮内部验收确定浅色为新安装默认主题，固定字号和对比度基线，并补充 Popup/浮层的视觉回归截图；真实用户反馈只用于后续复核，不覆盖已有主题设置。
+- [x] 为应用商店准备单色图标、深浅背景图标、截图和中英文一句话说明；发布前检查图标在 16px 工具栏尺寸下仍能辨认折角和横线。
+- [x] 增加键盘路径：打开后焦点进入第一个动作，Escape 关闭浮层或收起更多操作，Tab 顺序覆盖范围、图片处理和导出动作。
+- [x] 把“发送到 Obsidian”和“批量保存”收进可折叠的更多操作，默认界面只保留最常用的复制、保存和重新提取。
+- [x] 确定面向国际发布的英文副标为 “Yezhai · Web to Markdown”，不替换中文品牌、内部命名空间或存储键。
+- [x] 记录本轮视觉截图、交互验收项和无障碍检查结果，后续视觉改动沿用同一份记录模板，避免重新堆叠渐变、浮夸动效和泛化 AI 文案。
 
 ## 4. 推荐拆分的 PR 顺序
 

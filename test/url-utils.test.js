@@ -15,14 +15,14 @@ test('resolveUrl converts relative links and preserves fragments', () => {
 
 test('normalizeDomUrls resolves href, src, srcset and lazy image attributes', () => {
   const dom = new JSDOM(
-    '<article><a href="../guide">Guide</a><img data-src="/img/a.png" srcset="/img/a.png 1x, img/b.png 2x"><a href="javascript:alert(1)">Bad</a></article>',
+    '<article><a href="../guide">Guide</a><img src="/placeholder.gif" data-src="/img/a.png" srcset="/img/a.png 1x, img/b.png 2x"><a href="javascript:alert(1)">Bad</a></article>',
     { url: 'https://example.com/docs/page.html' },
   );
   normalizeDomUrls(dom.window.document.querySelector('article'), dom.window.document.baseURI);
 
   const article = dom.window.document.querySelector('article');
   assert.equal(article.querySelector('a').href, 'https://example.com/guide');
-  assert.equal(article.querySelector('img').getAttribute('src'), 'https://example.com/img/a.png');
+  assert.equal(article.querySelector('img').getAttribute('src'), 'https://example.com/docs/img/b.png');
   assert.equal(article.querySelector('img').getAttribute('srcset'), 'https://example.com/img/a.png 1x, https://example.com/docs/img/b.png 2x');
   assert.equal(article.querySelectorAll('a')[1].hasAttribute('href'), false);
 });

@@ -22,6 +22,18 @@ test('buildMarkdownDocument adds quoted frontmatter and normalizes whitespace', 
   assert.match(markdown, /Body text/);
 });
 
+test('buildMarkdownDocument preserves blank lines inside fenced code', () => {
+  const markdown = buildMarkdownDocument({
+    title: 'Code',
+    source: 'https://example.com',
+    date: '2026-05-22',
+    body: ['```py', 'value = "first', '', '', 'last"', 'print(value)', '```', '', '', 'After'].join('\n'),
+  });
+
+  assert.match(markdown, /first\n\n\nlast/);
+  assert.match(markdown, /print\(value\)\n```\n\nAfter/);
+});
+
 test('buildMarkdownDocument quotes YAML scalar values consistently', () => {
   const markdown = buildMarkdownDocument({
     title: 'Title',

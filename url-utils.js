@@ -10,6 +10,7 @@
   const LAZY_SOURCE_ATTRIBUTES = [
     'data-src', 'data-original', 'data-lazy-src', 'data-url',
   ];
+  const PLACEHOLDER_PATTERN = /(?:placeholder|transparent|spacer|blank|loading)(?:[._-]|$)/i;
 
   function isSafeRasterDataUrl(value) {
     return /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp)(?:;|,)/i.test(String(value || '').trim());
@@ -45,7 +46,9 @@
   }
 
   function chooseLazySource(element) {
-    if (!element || element.getAttribute('src')?.trim()) return;
+    if (!element) return;
+    const current = element.getAttribute('src')?.trim() || '';
+    if (current && !PLACEHOLDER_PATTERN.test(current)) return;
     for (const name of LAZY_SOURCE_ATTRIBUTES) {
       const value = element.getAttribute(name);
       if (value?.trim()) {
@@ -53,6 +56,20 @@
         return;
       }
     }
+  }
+
+  function chooseLargestSrcsetSource(element) {
+    const srcset = element.getAttribute('srcset');
+    if (!srcset) return;
+    const candidates = srcset.split(',').map((candidate) => {
+      const parts = candidate.trim().split(/\s+/);
+      const url = parts.shift() || '';
+      const descriptor = parts[0] || '1x';
+      const value = descriptor.endsWith('w') ? Number.parseFloat(descriptor) / 1000 : Number.parseFloat(descriptor);
+      return { url, value: Number.isFinite(value) ? value : 1 };
+    }).filter((candidate) => candidate.url);
+    const largest = candidates.sort((left, right) => right.value - left.value)[0];
+    if (largest?.url) element.setAttribute('src', largest.url);
   }
 
   function normalizeSrcset(value, baseUrl) {
@@ -94,6 +111,8 @@
         if (srcset) element.setAttribute('srcset', srcset);
         else element.removeAttribute('srcset');
       }
+
+      if (tagName === 'img' && element.hasAttribute('srcset')) chooseLargestSrcsetSource(element);
     }
 
     return root;

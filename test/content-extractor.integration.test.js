@@ -93,7 +93,7 @@ test('conversion emits task lists, strikethrough and basic GFM tables', async ()
 
 test('fixture-backed full-page output stays stable', async () => {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures/full-page.html'), 'utf8');
-  const expected = fs.readFileSync(path.join(__dirname, 'fixtures/full-page.body.md'), 'utf8').trim();
+  const expected = fs.readFileSync(path.join(__dirname, 'fixtures/full-page.body.md'), 'utf8').replace(/\r\n?/g, '\n').trim();
   const dom = createWindowFromHtml(html);
   const result = await dom.window.MarkClipExtractor.buildMarkdown({ mode: 'full' });
   assert.equal(bodyWithoutFrontmatter(result.markdown), expected);
@@ -158,6 +158,22 @@ test('large conversions honor a caller deadline', async () => {
   );
 });
 
+test('large nested conversions honor an already expired deadline', async () => {
+  const paragraphs = Array.from({ length: 25 }, (_value, index) => `<p>Nested paragraph ${index}</p>`).join('');
+  const dom = createWindow(`<article><div>${paragraphs}</div></article>`);
+  await assert.rejects(
+    () => dom.window.MarkClipExtractor.markdownFromElement(dom.window.document.querySelector('article'), { deadline: 0 }),
+    /转换耗时过长/,
+  );
+});
+
+test('chunked conversion keeps paragraph boundaries', async () => {
+  const paragraphs = Array.from({ length: 22 }, (_value, index) => `<p>Boundary paragraph ${index}</p>`).join('');
+  const dom = createWindow(`<article>${paragraphs}</article>`);
+  const body = bodyWithoutFrontmatter((await dom.window.MarkClipExtractor.markdownFromElement(dom.window.document.querySelector('article'), { title: 'Boundary', source: 'full' })).markdown);
+  assert.match(body, /Boundary paragraph 19\n\nBoundary paragraph 20\n\nBoundary paragraph 21/);
+});
+
 test('large conversions honor an AbortSignal cancellation', async () => {
   const dom = createWindow('<article><p>Cancelable content.</p></article>');
   const controller = new dom.window.AbortController();
@@ -183,4 +199,43 @@ test('optional image localization embeds accessible images without changing the 
   const result = await dom.window.MarkClipExtractor.buildMarkdown({ mode: 'full', localizeImages: true });
   assert.match(result.markdown, /data:image\/png;base64,/);
   assert.equal(result.diagnostics.images.inlined, 1);
+});
+
+test('conversion keeps the page context when navigation happens during image loading', async () => {
+  const dom = createWindow('<main><p>Page A content is long enough for the conversion fixture.</p><img src="https://example.com/a.png"></main>');
+  const blob = new dom.window.Blob(['pixel'], { type: 'image/png' });
+  dom.window.fetch = async () => {
+    dom.window.history.pushState({}, '', '/page-b');
+    return { ok: true, blob: async () => blob };
+  };
+  const result = await dom.window.MarkClipExtractor.buildMarkdown({ mode: 'full', localizeImages: true });
+  assert.match(result.markdown, /source: "https:\/\/example\.com\/docs\/page\.html"/);
+  assert.match(result.markdown, /Page A content/);
+});
+
+test('navigation while reading site rules aborts instead of mixing page sources', async (t) => {
+  const dom = createWindow('<main><p>Page A content.</p></main>');
+  t.after(() => dom.window.close());
+  dom.window.chrome.storage = { local: { get: async () => {
+    dom.window.history.pushState({}, '', '/page-b');
+    dom.window.document.title = 'Page B';
+    dom.window.document.body.innerHTML = '<main><p>Page B content.</p></main>';
+    return { siteRules: [] };
+  } } };
+  await assert.rejects(dom.window.MarkClipExtractor.buildMarkdown({ mode: 'full' }), /页面已跳转/);
+});
+
+test('same-URL updates before extraction use metadata from the cloned document', async (t) => {
+  const dom = createWindow('<main><p>Old content.</p></main>');
+  t.after(() => dom.window.close());
+  dom.window.chrome.storage = { local: { get: async () => {
+    dom.window.document.title = 'Updated title';
+    dom.window.document.head.insertAdjacentHTML('beforeend', '<meta name="author" content="Updated author">');
+    dom.window.document.body.innerHTML = '<main><p>Updated content.</p></main>';
+    return { siteRules: [] };
+  } } };
+  const result = await dom.window.MarkClipExtractor.buildMarkdown({ mode: 'full', template: '{{title}}\n{{author}}\n{{content}}' });
+  assert.match(result.markdown, /Updated title/);
+  assert.match(result.markdown, /Updated author/);
+  assert.match(result.markdown, /Updated content/);
 });

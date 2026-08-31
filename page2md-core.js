@@ -12,6 +12,30 @@
       .replace(/\u2029/g, '\\u2029');
   }
 
+  function normalizeBodyWhitespace(value) {
+    const lines = String(value || '').replace(/\r\n?/g, '\n').split('\n');
+    const normalized = [];
+    let fence = null;
+
+    for (const line of lines) {
+      const marker = line.match(/^\s*(`{3,}|~{3,})/);
+      const closingMarker = line.match(/^\s*(`{3,}|~{3,})\s*$/);
+      const wasInsideFence = Boolean(fence);
+      if (!fence && marker) {
+        fence = { character: marker[1][0], length: marker[1].length };
+      }
+
+      if (!fence && line === '' && normalized[normalized.length - 1] === '') continue;
+      normalized.push(line);
+
+      if (wasInsideFence && closingMarker && closingMarker[1][0] === fence.character && closingMarker[1].length >= fence.length) {
+        fence = null;
+      }
+    }
+
+    return normalized.join('\n');
+  }
+
   function buildMarkdownDocument({ title, source, date, body }) {
     const cleanBody = String(body || '').trim();
     const frontmatter = [
@@ -23,7 +47,7 @@
       '',
     ].join('\n');
 
-    return `${frontmatter}\n${cleanBody.replace(/\n{3,}/g, '\n\n').trim()}`;
+    return `${frontmatter}\n${normalizeBodyWhitespace(cleanBody).trim()}`;
   }
 
   function sanitizeFileName(name) {

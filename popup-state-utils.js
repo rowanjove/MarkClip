@@ -14,7 +14,7 @@
   });
 
   const STORAGE_DEFAULTS = Object.freeze({
-    [STORAGE_KEYS.theme]: 'dark',
+    [STORAGE_KEYS.theme]: 'light',
     [STORAGE_KEYS.mode]: 'main',
     [STORAGE_KEYS.removeImages]: false,
     [STORAGE_KEYS.localizeImages]: false,

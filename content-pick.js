@@ -16,7 +16,7 @@
       node = node.parentElement;
     }
 
-    if (!node || node === document.documentElement) return null;
+    if (!node || node === document.documentElement || node === document.body) return null;
     return node;
   }
 
@@ -30,10 +30,10 @@
       'position:fixed',
       'z-index:2147483646',
       'pointer-events:none',
-      'border:2px solid #2aa8ff',
-      'background:rgba(42,168,255,.10)',
-      'box-shadow:0 0 0 99999px rgba(7,16,28,.18),0 12px 34px rgba(0,0,0,.28)',
-      'border-radius:10px',
+      'border:2px solid #6fba84',
+      'background:rgba(111,186,132,.11)',
+      'box-shadow:0 0 0 99999px rgba(22,29,24,.14)',
+      'border-radius:4px',
       'display:none',
     ].join(';');
     document.documentElement.appendChild(overlay);
@@ -50,15 +50,15 @@
       'position:fixed',
       'z-index:2147483647',
       'left:50%',
-      'top:18px',
+      'top:14px',
       'transform:translateX(-50%)',
-      'padding:8px 13px',
-      'border-radius:999px',
-      'background:#111827',
-      'color:#f2f6fb',
-      'font:700 12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
-      'box-shadow:0 10px 28px rgba(0,0,0,.28)',
-      'border:1px solid rgba(148,163,184,.18)',
+      'padding:8px 10px',
+      'border-radius:6px',
+      'background:#202522',
+      'color:#f4f6f2',
+      'font:600 12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      'box-shadow:0 8px 22px rgba(0,0,0,.20)',
+      'border:1px solid #424b45',
     ].join(';');
     document.documentElement.appendChild(tip);
     return tip;
@@ -80,7 +80,7 @@
 
   function startPickMode(options = {}) {
     if (activePickMode) {
-      return Promise.reject(new Error('已有框选正在进行，请先完成或取消。'));
+      return Promise.reject(new Error('已有选择区域正在进行，请先完成或取消。'));
     }
 
     return new Promise((resolve, reject) => {
@@ -91,22 +91,22 @@
       let selectedMarkers = [];
       let currentTarget = null;
 
-      tip.innerHTML = '<span>点击区域可多选</span><button type="button" data-action="done">完成</button><button type="button" data-action="cancel">取消</button>';
+      tip.innerHTML = '<span>选择要保留的区域</span><button type="button" data-action="done">完成</button><button type="button" data-action="cancel">取消</button>';
       tip.style.display = 'flex';
       tip.style.alignItems = 'center';
       tip.style.gap = '8px';
       tip.querySelectorAll('button').forEach((button) => {
         button.style.cssText = [
           'border:0',
-          'border-radius:999px',
-          'padding:4px 9px',
-          'background:#2aa8ff',
-          'color:#fff',
+          'border-radius:4px',
+          'padding:4px 8px',
+          'background:#6fba84',
+          'color:#17341f',
           'font:700 12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
           'cursor:pointer',
         ].join(';');
       });
-      tip.querySelector('[data-action="cancel"]').style.background = '#273244';
+      tip.querySelector('[data-action="cancel"]').style.cssText += ';background:#303833;color:#f4f6f2;border:1px solid #424b45';
 
       function updateTip(message) {
         tip.querySelector('span').textContent = message || (
@@ -134,9 +134,9 @@
           'position:fixed',
           'z-index:2147483645',
           'pointer-events:none',
-          'border:2px solid #2ee6a6',
-          'background:rgba(46,230,166,.08)',
-          'border-radius:10px',
+          'border:2px solid #6fba84',
+          'background:rgba(111,186,132,.08)',
+          'border-radius:4px',
         ].join(';');
         document.documentElement.appendChild(marker);
         const markerEntry = { target, node: marker };
@@ -188,12 +188,18 @@
       }
 
       function onMove(event) {
+        if (tip.contains(event.target)) {
+          currentTarget = null;
+          highlightPickTarget(null, overlay);
+          return;
+        }
         currentTarget = getPickCandidate(event.target, options.uiHost);
         highlightPickTarget(currentTarget, overlay);
       }
 
       function onClick(event) {
-        const action = event.target?.dataset?.action;
+        const actionTarget = event.target?.closest?.('[data-action]');
+        const action = actionTarget && tip.contains(actionTarget) ? actionTarget.dataset.action : null;
         if (action === 'done') {
           event.preventDefault();
           event.stopPropagation();
@@ -204,9 +210,10 @@
           event.preventDefault();
           event.stopPropagation();
           cleanup();
-          reject(new Error('已取消框选。'));
+          reject(new Error('已取消选择区域。'));
           return;
         }
+        if (tip.contains(event.target)) return;
         if (!currentTarget) return;
         event.preventDefault();
         event.stopPropagation();
@@ -224,7 +231,7 @@
         event.preventDefault();
         event.stopPropagation();
         cleanup();
-        reject(new Error('已取消框选。'));
+        reject(new Error('已取消选择区域。'));
       }
 
       updateTip();
@@ -242,7 +249,7 @@
     const target = await startPickMode(options);
     return markdownFromElement(cleanClone(target, { profile: 'pick' }), {
       title: document.title,
-      source: '框选',
+      source: '选择区域',
       removeImages: options.removeImages,
       localizeImages: options.localizeImages,
     });

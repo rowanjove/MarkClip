@@ -111,7 +111,7 @@
       message.includes('This page cannot be scripted') ||
       message.includes('Missing host permission')
     ) {
-      return '当前页面不允许 MarkClip 读取内容。请换普通网页；如果是本地文件，请在扩展详情中开启“允许访问文件网址”。';
+      return '当前页面不允许页摘读取内容。请换普通网页；如果是本地文件，请在扩展详情中开启“允许访问文件网址”。';
     }
 
     return message || '转换库加载失败。';
@@ -127,7 +127,7 @@
   function assertDocumentSize() {
     const nodeCount = document.getElementsByTagName('*').length;
     if (nodeCount > MAX_NODE_COUNT) {
-      throw new Error('页面结构过大，已停止转换。请使用框选模式选择需要的区域。');
+      throw new Error('页面结构过大，已停止转换。请使用选择区域模式选择需要的内容。');
     }
   }
 
@@ -196,11 +196,11 @@
     return { element: cleaned, title: document.title, source: '选区', warnings: [] };
   }
 
-  async function getStoredSiteRule() {
+  async function getStoredSiteRule(url = location.href) {
     if (!chrome.storage?.local) return null;
     try {
       const stored = await chrome.storage.local.get({ siteRules: [] });
-      return MarkClipSiteRules.findSiteRule(location.href, stored.siteRules);
+      return MarkClipSiteRules.findSiteRule(url, stored.siteRules);
     } catch (_err) {
       return null;
     }
@@ -322,21 +322,30 @@
 
   async function convertToMarkdown(element, options = {}) {
     if (options.signal?.aborted) throw new Error('转换已取消。');
+    if (options.deadline !== undefined && Date.now() > options.deadline) {
+      throw new Error('转换耗时过长，已停止。请使用选择区域模式选择需要的内容。');
+    }
     if (textLength(element) > MAX_TEXT_LENGTH) {
-      throw new Error('页面内容过大，已停止转换。请使用框选模式选择需要的区域。');
+      throw new Error('页面内容过大，已停止转换。请使用选择区域模式选择需要的内容。');
     }
     const service = getTurndownService(Boolean(options.removeImages));
     const children = Array.from(element.childNodes || []);
 
-    if (children.length <= CHUNK_SIZE) {
-      return service.turndown(element);
+    const canChunk = children.length > CHUNK_SIZE && !['UL', 'OL', 'TABLE', 'PRE'].includes(element.nodeName);
+    if (!canChunk) {
+      const markdown = service.turndown(element);
+      if (options.signal?.aborted) throw new Error('转换已取消。');
+      if (options.deadline !== undefined && Date.now() > options.deadline) {
+        throw new Error('转换耗时过长，已停止。请使用选择区域模式选择需要的内容。');
+      }
+      return markdown;
     }
 
     const parts = [];
     for (let i = 0; i < children.length; i += CHUNK_SIZE) {
       if (options.signal?.aborted) throw new Error('转换已取消。');
-      if (options.deadline !== undefined && now() > options.deadline) {
-        throw new Error('转换耗时过长，已停止。请使用框选模式选择需要的区域。');
+      if (options.deadline !== undefined && Date.now() > options.deadline) {
+        throw new Error('转换耗时过长，已停止。请使用选择区域模式选择需要的内容。');
       }
       const chunk = element.cloneNode(false);
       for (let j = i; j < Math.min(i + CHUNK_SIZE, children.length); j += 1) {
@@ -346,7 +355,12 @@
       if (i + CHUNK_SIZE < children.length) await yieldToMain(options.signal);
     }
 
-    return parts.join('\n');
+    if (options.signal?.aborted) throw new Error('转换已取消。');
+    if (options.deadline !== undefined && Date.now() > options.deadline) {
+      throw new Error('转换耗时过长，已停止。请使用选择区域模式选择需要的内容。');
+    }
+
+    return parts.filter(Boolean).join('\n\n');
   }
 
   function selectContent(mode, siteRule = null) {
@@ -378,6 +392,7 @@
     const timings = {};
     const warnings = [...(options.warnings || [])];
     let imageStats = { attempted: 0, inlined: 0, failed: 0 };
+    const deadline = options.deadline !== undefined ? options.deadline : Date.now() + CONVERSION_TIMEOUT_MS;
     if (options.localizeImages) {
       const fetchImpl = typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null;
       if (!fetchImpl || !window.MarkClipImages?.inlineImages) {
@@ -385,7 +400,7 @@
       } else {
         const localized = await window.MarkClipImages.inlineImages(element, {
           fetchImpl,
-          deadline: Date.now() + CONVERSION_TIMEOUT_MS,
+          deadline,
           signal: options.signal,
         });
         imageStats = localized.stats;
@@ -396,32 +411,34 @@
     timings.convertStart = startedAt;
     const body = await convertToMarkdown(element, {
       ...options,
-      deadline: options.deadline !== undefined ? options.deadline : now() + CONVERSION_TIMEOUT_MS,
+      deadline,
     });
     timings.convertMs = Math.round(now() - startedAt);
     const composeStartedAt = now();
-    const title = options.title || document.title || 'Untitled';
+    const pageContext = options.pageContext || {};
+    const title = options.title || pageContext.title || document.title || 'Untitled';
     const date = new Date().toISOString().slice(0, 10);
-    const author = document.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || '';
-    const site = location.hostname || '';
+    const author = pageContext.author ?? (document.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || '');
+    const sourceUrl = pageContext.url || location.href;
+    const site = pageContext.site || new URL(sourceUrl).hostname || '';
     const markdown = options.template
       ? MarkClipTemplate.renderTemplate(options.template, MarkClipTemplate.buildVariables({
         title,
-        url: location.href,
+        url: sourceUrl,
         source: options.source,
         date,
         author,
         site,
         content: body,
       }))
-      : Page2MDCore.buildMarkdownDocument({ title, source: location.href, date, body });
+      : Page2MDCore.buildMarkdownDocument({ title, source: sourceUrl, date, body });
     timings.composeMs = Math.round(now() - composeStartedAt);
 
     return MarkClipContract.createClipResult({
       markdown,
       title,
       charCount: markdown.length,
-      source: options.source || '框选',
+      source: options.source || '正文',
       warnings,
       diagnostics: {
         ...(options.diagnostics || {}),
@@ -433,11 +450,22 @@
 
   async function buildMarkdown(options = {}) {
     const totalStartedAt = now();
+    const sourceUrl = String(location.href);
     await ensureLibraries();
     await yieldToMain(options.signal);
-    if (!['selection', 'pick'].includes(options.mode)) assertDocumentSize();
     const extractStartedAt = now();
-    const siteRule = await getStoredSiteRule();
+    const siteRule = await getStoredSiteRule(sourceUrl);
+    if (sourceUrl !== location.href) {
+      throw new Error('页面已跳转，请在新页面重新提取。');
+    }
+    if (!['selection', 'pick'].includes(options.mode)) assertDocumentSize();
+    // Capture metadata and clone content in the same task, after all preparation awaits.
+    const pageContext = {
+      url: sourceUrl,
+      title: document.title,
+      author: document.querySelector('meta[name="author"], meta[property="article:author"]')?.getAttribute('content') || '',
+      site: location.hostname || '',
+    };
     const extracted = selectContent(options.mode || 'main', siteRule);
     const { element, title, source } = extracted;
     const warnings = [...(extracted.warnings || [])];
@@ -457,6 +485,7 @@
       warnings,
       localizeImages,
       diagnostics,
+      pageContext,
     });
     return MarkClipContract.createClipResult({
       ...result,
