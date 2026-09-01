@@ -1,107 +1,93 @@
-# 页摘 - 网页摘录为 Markdown
+# 页摘 · Yezhai — 网页转 Markdown
 
-<img src="store-assets/icon-preview-256.png" alt="页摘：从页面中摘出一行" width="96" height="96">
+[简体中文](README.md) | [English](README.en.md)
 
-页摘是一个 Chrome MV3 扩展，用来把网页正文、选择区域或整页内容转换成干净的 Markdown，方便复制到笔记、知识库或 Markdown 文档。
+页摘是一款 Chrome／Edge 扩展，可将网页正文、选定区域或整页内容转换为 Markdown。你可以复制文本、下载文件，或通过 Obsidian URI 保存到笔记库。提取和格式转换在浏览器本地完成，不上传页面内容。
 
-对外产品名为「页摘」，GitHub 仓库保留 `rowanjove/MarkClip`。内部 `MarkClip*` 命名空间、`page2md:*` 设置键及 `markclip` 打包名称暂时保留，避免影响现有使用方式与设置。
+项目曾使用 MarkClip 名称，仓库地址仍为 `rowanjove/MarkClip`。当前版本为 **v1.4.0**，界面以中文为主。
 
-> 当前版本：**v1.4.0（2026-09-01）**。[下载安装包](https://github.com/rowanjove/MarkClip/releases/download/v1.4.0/markclip-1.4.0.zip) · [更新说明](https://github.com/rowanjove/MarkClip/releases/tag/v1.4.0)。以下为本版本实际界面截图，历史 v1.3.0 Release 保留不变。
+[下载 v1.4.0](https://github.com/rowanjove/MarkClip/releases/download/v1.4.0/markclip-1.4.0.zip) · [更新记录](CHANGELOG.md) · [报告问题](https://github.com/rowanjove/MarkClip/issues)
 
-## 界面预览
+![页摘浅色弹窗：范围选择、Markdown 预览和保存操作](visual-regression/popup-light.png)
 
-默认浅色，也可切换深色。主要操作直接展示，Obsidian 和批量导出收在“更多操作”内。
+## 安装与使用
 
-| 浅色界面 | 深色界面 |
-| --- | --- |
-| <img src="visual-regression/popup-light.png" alt="页摘浅色弹窗" width="360"> | <img src="visual-regression/popup-dark.png" alt="页摘深色弹窗" width="360"> |
+1. 下载并解压安装 ZIP 到固定目录。
+2. 在 Chrome 打开 `chrome://extensions/`，或在 Edge 打开 `edge://extensions/`。
+3. 开启“开发者模式”，点击“加载已解压的扩展程序”。
+4. 选择包含 `manifest.json` 的目录，不要直接选择 ZIP 文件。
+5. 打开需要摘录的网页，点击扩展图标，选择正文、区域或整页。
+6. 检查预览，按需修改标题和 Markdown，再复制或下载。
 
-页面快捷入口可拖动，点击展开提取范围、复制和保存操作。
+升级已解压版本时，先备份原目录，再将新版本解压到原目录，在扩展管理页点击“重新加载”，并刷新已打开的网页。不要先卸载扩展，以免删除本地设置。
 
-![页摘页面快捷入口：浅色](visual-regression/floating-light.png)
-
-<details>
-<summary>查看深色浮窗</summary>
-
-![页摘页面快捷入口：深色](visual-regression/floating-dark.png)
-
-</details>
-
-截图使用本地演示页面，不含用户数据；浮窗偏好及操作消息使用测试替身，图标通过真实扩展资源加载。截图用于人工视觉复核，不等同于完整导出链路验收。
-
-当前发布目标为支持 Manifest V3 的 Chromium 浏览器（Chrome、Edge 等）。Firefox/Safari 需要单独验证浏览器 API 和动态 content script 权限模型后再发布。
-
-浏览器支持范围和发布前 smoke 清单见：[BROWSER_SUPPORT.md](./BROWSER_SUPPORT.md)。
-
-品牌、界面和无障碍基线见：[DESIGN_GUIDE.md](./DESIGN_GUIDE.md)。
-
-商店名称、截图和图标素材见：[STORE_LISTING.md](./STORE_LISTING.md)。
-
-本轮截图和交互/无障碍验收记录见：[VISUAL_REVIEW.md](./VISUAL_REVIEW.md)。
-
-它面向中文用户设计，适合把网页资料整理到 Obsidian、Notion 和其他 Markdown 工具。
-
-## 主要功能
-
-- 提取网页正文，优先使用 Mozilla Readability。
-- 支持选择一个或多个页面区域，只导出你需要的内容。
-- 支持全页转换，适合网页归档。
-- 复制 Markdown 到剪贴板。
-- 下载 `.md` 文件。
-- 可选打开 Obsidian URI，把当前内容写入默认 vault。
-- 可选批量导出当前窗口中的多个网页标签页。
-- 可在弹窗预览区直接编辑 Markdown 和文件标题后再复制或下载。
-- 可选移除图片链接，减少文档体积。
-- 可选将可访问图片内嵌为 data URL；失败时保留原链接。
-- 自动添加 `title`、`source`、`date` frontmatter，方便溯源。
-- 在普通网页显示可拖动悬浮面板，减少重复点击扩展按钮。
-- 支持深色 / 浅色界面。
-
-## 隐私说明
-
-页摘在浏览器本地完成网页提取和 Markdown 转换。
-
-页摘不上传网页内容，不收集浏览记录，不使用远程服务器处理页面数据，也不接入统计分析服务。
-
-完整隐私政策见：[PRIVACY.md](./PRIVACY.md)。
-
-高级用户可以参考：[SITE_RULES.md](./SITE_RULES.md) 配置站点级 selector 和 Markdown 模板。
-导出目标和本地优先限制见：[EXPORT_TARGETS.md](./EXPORT_TARGETS.md)。
-
-## 本地安装
-
-1. 下载 Release 中的 `markclip-1.4.0.zip` 并解压到固定目录（不要直接选择 ZIP）。
-2. 打开 Chrome 的 `chrome://extensions`，开启右上角“开发者模式”。
-3. 点击“加载已解压的扩展程序”，选择包含 `manifest.json` 的解压目录。
-4. 已加载旧版的用户：将新版文件覆盖到原目录，然后在扩展管理页点击“重新加载”，并刷新需要使用浮窗的网页。不要先卸载扩展，以免删除本地设置。
-
-开发者也可以克隆仓库后直接加载项目目录。
-
-首次安装默认不会向所有网页注入脚本。打开扩展弹窗即可按需转换当前页面；如果开启“页面悬浮按钮”，扩展会单独请求可选的网页访问权限，关闭该功能后可以撤销动态注册。
-
-## 开发与测试
-
-运行检查和测试：
+开发者也可以克隆仓库后直接加载项目目录：
 
 ```bash
-npm install
+git clone https://github.com/rowanjove/MarkClip.git
+cd MarkClip
+```
+
+## 提取与导出
+
+- 正文提取优先使用 Mozilla Readability，适合文章和教程。
+- 区域选择支持一个或多个页面区域，适合只保留部分资料。
+- 整页转换适合页面归档，但结果仍取决于网页结构。
+- Markdown 可复制、下载为 `.md`，或通过 Obsidian URI 写入默认 vault。
+- 可批量导出当前窗口的多个网页标签页。
+- 预览区允许编辑 Markdown 和文件标题。
+- 自动添加 `title`、`source`、`date` frontmatter，便于追溯来源。
+- 图片可保留链接、移除链接，或尝试内嵌为 data URL；获取失败时保留原链接。
+- 支持浅色／深色界面，以及可拖动的页面悬浮入口。
+
+![页摘页面悬浮入口](visual-regression/floating-light.png)
+
+截图来自本地演示页面，不含用户数据。截图不是完整导出链路的验收证明。
+
+## 权限与隐私
+
+页摘不收集浏览记录，不使用远程服务器处理页面，也不接入统计分析服务。图片内嵌需要从图片来源获取可访问的资源；本地处理不等于所有操作都不发出网络请求。
+
+首次安装不会向所有网页注入脚本。打开弹窗可按需转换当前页面；开启“页面悬浮按钮”时，扩展会请求可选的网页访问权限。关闭该功能后可以撤销动态注册。
+
+完整说明见 [隐私政策](PRIVACY.md)。
+
+## 支持范围与限制
+
+当前发布目标是支持 Manifest V3 的 Chromium 浏览器，包括 Chrome 和 Edge。Firefox、Safari 尚未完成对应浏览器 API 和权限模型验证，不能按同样步骤保证可用。
+
+导出质量受页面 DOM、可访问图片和内容加载状态影响。图片内嵌的显示效果取决于目标 Markdown 工具；通过 Obsidian URI 导出需要本机具备相应处理程序。英文文档不代表扩展界面已完成英文本地化。
+
+[浏览器支持](BROWSER_SUPPORT.md) · [导出目标与限制](EXPORT_TARGETS.md) · [站点规则与模板](SITE_RULES.md)
+
+## 本地开发
+
+项目无需构建即可作为已解压扩展加载。开发工具需要 Node.js 和 npm；安装锁定依赖后运行：
+
+```bash
+npm ci
 npm run check
 ```
 
-`npm test` 包含纯函数、JSDOM 转换集成和 manifest 回归测试。浏览器 E2E 使用本地 fixture，避免依赖公网。
+检查包含语法、manifest 和回归测试。浏览器 E2E 使用本地 fixture；实际使用网页仍需单独验证。
 
-更新图标、商店素材和截图：
+| 命令 | 用途 |
+| --- | --- |
+| `npm run test:e2e` | 运行浏览器 E2E 测试 |
+| `npm run check:security` | 第三方依赖检查与依赖审计 |
+| `npm run package` | 在 `dist/` 生成发布包 |
+| `npm run icons:generate` | 更新图标 |
+| `npm run store-assets:generate` | 更新商店素材 |
+| `npm run ui-review:capture` | 重拍 UI 截图 |
 
-```bash
-npm run icons:generate
-npm run store-assets:generate
-npm run ui-review:capture
-```
+截图和浏览器测试需要 Playwright Chromium，可通过 `npx playwright install chromium` 安装。改动扩展代码后，在浏览器重新加载扩展并刷新目标网页。不要将 `dist/` 发布产物提交为源码。
 
-截图脚本需要已安装 Playwright Chromium，并会启动浏览器。安全检查与本地打包分别使用 `npm run check:security`、`npm run package`；打包产物在 `dist/`，不提交至源码仓库。
+## 文档与贡献
 
-## English
+[贡献指南](CONTRIBUTING.md) · [设计规范](DESIGN_GUIDE.md) · [商店素材](STORE_LISTING.md) · [视觉验收记录](VISUAL_REVIEW.md)
 
-Yezhai · Web to Markdown (页摘) is a Chrome MV3 extension that converts the current web page, selected page regions, or full page content into clean Markdown locally in the browser.
+内部 `MarkClip*` 命名空间、`page2md:*` 设置键和 `markclip` 打包名称暂时保留，以兼容既有设置和工具。
 
-It does not collect user data or upload page content to any server.
+## 许可
+
+项目采用 [MIT License](LICENSE)。第三方组件的许可和署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
