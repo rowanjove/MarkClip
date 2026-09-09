@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 - 2026-09-09
+
+统一第二代架构升级：
+
+- WXT + TypeScript + ES Modules，Chrome/Edge/Firefox manifest 与 Safari Converter 兼容路线。
+- 页面/站点/全站三级权限、动态脚本 reconcile、Options/Side Panel、右键菜单和快捷键。
+- Defuddle → Readability → Semantic Smart 提取链，Recipe 2.0、Metadata Pipeline 与 Diagnostics。
+- URL/代码/表格/数学/脚注/Callout 标准化；CommonMark/GFM/Obsidian profile 与可编辑自定义 Profile。
+- Recipe 支持 JSON/YAML 文本或文件导入导出，Profile 与 Recipe 均经过声明式 schema 验证。
+- Remote/Remove/Embed/Assets 图片模式、并发下载/去重/大小超时限制、Metadata/Diagnostics/Snapshot ZIP。
+- 安全 Template 2.0、批量队列暂停/取消/重试、Highlights、高级 Export Adapter 和可选 AI Provider。
+- 增加现代 Vitest/fixture、跨浏览器构建、权限/许可证/security/package/release gate。
+
 ## 1.4.0 - 2026-09-01
 
 ### 2026-09-01 · 页摘界面与稳定性更新
