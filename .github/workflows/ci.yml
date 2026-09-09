@@ -18,8 +18,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - run: npm run check:security
-      - run: npm run package
+      - run: npm run check:full
+      - run: npm run package:modern
+      - run: npm run check:modern-manifest
       - run: npx playwright install chromium
       - run: xvfb-run -a env RUN_BROWSER_E2E=1 npm run test:e2e
+      - run: xvfb-run -a npm run test:e2e:modern
