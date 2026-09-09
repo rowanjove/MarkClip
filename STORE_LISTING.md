@@ -51,3 +51,26 @@
 - [x] 截图不展示网页内容上传、云端处理或 AI 生成承诺；
 - [ ] 在目标商店后台上传后复核裁切、缩略图和实际展示对比度；
 - [ ] 发布前由另一位使用者完成一次真实操作验收。
+
+## 权限理由（Chrome Web Store 隐私权规范 / Privacy Practices）
+
+在 Chrome Web Store 开发者后台的「隐私权规范」（Privacy practices）标签页中，针对各项权限需填写的说明理由如下：
+
+### 1. contextMenus
+- **中文（可直接复制）**：
+  > 用于在网页右键菜单中提供快捷摘录入口，允许用户通过鼠标右键快速将选中文本、链接或当前网页直接转换为 Markdown 并进行复制或保存，无需频繁点击顶部工具栏弹窗。
+- **英文（English Justification）**：
+  > Used to provide right-click context menu options that allow users to quickly clip selected text, links, or the entire web page directly to Markdown without opening the extension popup.
+
+### 2. downloads
+- **中文（可直接复制）**：
+  > 用于在用户点击保存或导出时，将浏览器本地转换生成的 Markdown 文档（.md 文件）以及包含图片和元数据的离线资料包（ZIP 文件）下载并保存到用户的本地磁盘。
+- **英文（English Justification）**：
+  > Used to save and download the locally generated Markdown documents (.md files) and offline archive packages (ZIP files containing images and metadata) to the user's local disk upon their explicit request.
+
+### 3. sidePanel
+- **中文（可直接复制）**：
+  > 用于在浏览器原生侧边栏（Side Panel）中展示常驻的 Markdown 实时预览、编辑器与批量任务队列，让用户在不遮挡当前网页且弹窗不自动关闭的情况下，对照浏览网页并编辑与保存摘录内容。
+- **英文（English Justification）**：
+  > Used to display the persistent Markdown editor, live preview, and batch clipping queue in Chrome's side panel, allowing users to review, edit, and organize clips side-by-side with web pages without the popup auto-dismissing.
+
