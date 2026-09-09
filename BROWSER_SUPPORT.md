@@ -1,33 +1,28 @@
 # 浏览器支持与发布 smoke
 
-## 当前承诺
+## v1.5 承诺
 
-- Chrome 120+：目标浏览器，Manifest V3、动态 content script 和可选 host permission 已通过本地 Chromium E2E。
-- Edge 120+：使用 Chromium 同一套扩展 API，发布前需在稳定版 Edge 手工完成下列 smoke。
-- Firefox/Safari：暂不作为发布承诺；动态脚本注册、权限模型和 MV3 API 需要独立适配与构建。
+- Chrome 120+：MV3、`activeTab` 按需注入、Side Panel、动态站点脚本。
+- Edge 120+：使用 Chromium 构建，需在目标稳定版完成一次加载解压包 smoke。
+- Firefox 140+：MV3、Sidebar、`optional_permissions`、`browser_specific_settings` 和 `data_collection_permissions: none` 已纳入构建检查。
+- Safari：没有宣称直接加载 Chrome 包；`src/browser/compatibility.ts` 固定能力边界，使用 Chrome MV3 输出经 Safari Web Extension Converter / Xcode 转换，Side Panel 映射为 Safari popover 或 app-extension window。转换后的签名和商店提交流程需在 macOS 验证。
 
-## 发布前手工清单
+## 权限一致性
 
-1. 普通 HTTPS 页面：正文、整页、选择区域、复制和下载各执行一次。
-2. 页面包含相对链接、懒加载图片、代码块、表格和公式：确认 Markdown 中 URL 已绝对化且没有 `javascript:`。
-3. Chrome Web Store/Edge 内置页、`chrome://`、扩展页和 PDF：确认弹窗显示可解释错误，不出现无限 loading。
-4. 开启悬浮按钮后刷新和切换 SPA 路由：确认只出现一个面板；关闭开关后撤销权限并移除面板。
-5. 关闭弹窗、重复点击转换、页面销毁后重试：确认没有重复注入或未处理异常。
+默认不注册全站脚本。页面一次性使用 `activeTab`；指定站点使用 `https://host/*` 独立授权；全站使用用户主动授予的 `<all_urls>`。启动、安装、权限变更时会 reconcile 动态脚本，撤销权限会注销对应脚本。
 
-## 自动化门禁
+## 自动门禁
 
 ```bash
-npm run check
-npm run check:security
-$env:RUN_BROWSER_E2E='1'; npm run test:e2e
-$env:RUN_CHROME_CDP_E2E='1'; npm run test:e2e:chrome
-$env:RUN_LIVE_SMOKE='1'; npm run test:live
+npm run check:full
+npm run test:e2e:modern
+npm run test:e2e
+npm run test:e2e:chrome
+npm run package:modern
 ```
 
-浏览器 E2E 默认使用 Playwright 管理的 Chromium，避免依赖开发机是否安装 Chrome。较新的官方 Chrome branded build 会忽略 `--load-extension` 侧载参数，因此 `CHROME_PATH` 只适用于明确支持侧载的 Chromium/Chrome for Testing；稳定版 Chrome/Edge 请按上面的手工清单，在 `chrome://extensions` 中开启开发者模式并使用“加载已解压的扩展程序”验证。
+现代 Chrome/Firefox manifest、图标和权限由 `npm run check:modern-manifest` 检查；Safari 路线由 `npm run check:safari-route` 检查。公网 real-site smoke 只作为低频人工验证，不作为稳定快照。
 
-`test:e2e:chrome` 会启动隔离的稳定 Chrome profile，通过官方 CDP `Extensions.loadUnpacked` 加载工作树，不修改用户现有浏览器 profile；该路径用于可重复的稳定版 Chrome smoke。
+## 人工清单
 
-最近一次验收（2026-08-31）：Playwright Chromium E2E、稳定版 Chrome CDP smoke 和公开页面 live smoke 均通过；当前环境未安装 Edge，因此 Edge 仍需在目标机器复核。
-
-参考：[Playwright Chrome 扩展测试说明](https://playwright.dev/docs/chrome-extensions)、[Chromium Extensions 关于移除 branded Chrome 侧载参数的说明](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY)。
+普通 HTTPS 页执行正文、选区、整页、复制、Markdown 下载、Assets ZIP、Highlights、Side Panel、Recipe 和 Diagnostics；再验证 chrome:// / PDF / 扩展页会给出可执行错误。刷新与 SPA 跳转后确认没有残留 toolbar、重复 bootstrap 或混用旧页面结果。Firefox 复核同一主路径，Edge 复核加载解压包与下载权限。

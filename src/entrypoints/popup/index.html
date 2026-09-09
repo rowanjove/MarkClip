@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>页摘</title><link rel="stylesheet" href="./style.css"></head>
+  <body>
+    <header><div><strong>页摘</strong><small>网页摘录为 Markdown</small></div><button id="openOptions" title="设置">⚙</button></header>
+    <main>
+      <p id="pageTitle" class="muted">当前页面</p>
+      <nav class="modes" aria-label="摘录范围"><button data-mode="main" class="active" aria-pressed="true">正文</button><button data-mode="selection" aria-pressed="false">选区</button><button data-mode="pick" aria-pressed="false">点选</button><button data-mode="full" aria-pressed="false">整页</button><button data-mode="highlights" aria-pressed="false">摘录</button></nav>
+      <label>Profile<select id="profile"><option value="smart">智能 Markdown（GFM）</option><option value="commonmark">CommonMark</option><option value="obsidian">Obsidian</option><option value="archive">完整归档</option></select></label>
+      <label>Template<select id="template"><option value="">不使用模板</option></select></label>
+      <label class="switch"><input id="assets" type="checkbox"> 保存图片资源</label>
+      <button id="sidepanel" class="secondary">在侧栏中编辑 / 查看详情</button>
+      <div id="error" role="alert"></div><p id="status" class="muted">准备就绪</p>
+    </main>
+    <footer><button id="copy">复制</button><button id="save" class="primary">保存</button></footer>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -2,92 +2,47 @@
 
 [简体中文](README.md) | [English](README.en.md)
 
-页摘是一款 Chrome／Edge 扩展，可将网页正文、选定区域或整页内容转换为 Markdown。你可以复制文本、下载文件，或通过 Obsidian URI 保存到笔记库。提取和格式转换在浏览器本地完成，不上传页面内容。
+页摘是本地优先的网页摘录与 Markdown 归档工具：网页只在用户设备上经过采集、正文识别、结构标准化，再输出 Markdown、Metadata、图片资源和可选 Snapshot。
 
-项目曾使用 MarkClip 名称，仓库地址仍为 `rowanjove/MarkClip`。当前版本为 **v1.4.0**，界面以中文为主。
+当前版本：**v1.5.0**。产品名为「页摘」，仓库保留 `rowanjove/MarkClip`；`page2md:*` 旧设置键和 `markclip` 包名前缀继续保留一个兼容周期。
 
-[下载 v1.4.0](https://github.com/rowanjove/MarkClip/releases/download/v1.4.0/markclip-1.4.0.zip) · [更新记录](CHANGELOG.md) · [报告问题](https://github.com/rowanjove/MarkClip/issues)
+## 能力
 
-![页摘浅色弹窗：范围选择、Markdown 预览和保存操作](visual-regression/popup-light.png)
+- 正文、选区、整页和多段高亮批注；Smart（Recipe → Defuddle → Readability → Semantic）提取链。
+- CommonMark、GFM、Obsidian 三种渲染 profile；表格、代码、数学、脚注、Callout、相对 URL 和懒加载图片标准化。
+- Remote / Remove / Embed / Assets 四种图片模式；Assets 与 Metadata、Diagnostics、可选安全 Snapshot 组成独立 ZIP 资料包。
+- 声明式 Site Recipe（内置与用户 JSON/YAML 导入），不执行 JavaScript；安全 Template 2.0（变量、filter、条件、循环）。
+- 内置与可编辑自定义 Profile，把提取、渲染、图片、模板和导出目标组合成可复用预设。
+- Popup 快速保存、Options 高级设置、Chrome Side Panel / Firefox Sidebar、右键菜单和快捷键。
+- 批量任务队列支持并发、暂停、取消、失败重试；Clipboard、Markdown、Bundle、ZIP、Obsidian，以及 GitHub/WebDAV/Joplin Adapter。
+- AI 后处理为显式可选能力，默认关闭；失败时保留原始 Markdown，密钥不进入诊断或设置导出。
+- Chrome、Edge、Firefox 主路径；Safari 使用 Chrome MV3 输出通过 Safari Web Extension Converter 转换（见浏览器文档）。
 
-## 安装与使用
+## 隐私与权限
 
-1. 下载并解压安装 ZIP 到固定目录。
-2. 在 Chrome 打开 `chrome://extensions/`，或在 Edge 打开 `edge://extensions/`。
-3. 开启“开发者模式”，点击“加载已解压的扩展程序”。
-4. 选择包含 `manifest.json` 的目录，不要直接选择 ZIP 文件。
-5. 打开需要摘录的网页，点击扩展图标，选择正文、区域或整页。
-6. 检查预览，按需修改标题和 Markdown，再复制或下载。
+核心转换不需要账户或后端，默认仅使用 `activeTab` 按需读取当前页面；站点悬浮和全站悬浮分别请求当前 origin 或可选 `<all_urls>`，关闭时注销动态脚本并撤销权限。AI/远程 Exporter 只有在用户配置并主动调用时才发送数据。
 
-升级已解压版本时，先备份原目录，再将新版本解压到原目录，在扩展管理页点击“重新加载”，并刷新已打开的网页。不要先卸载扩展，以免删除本地设置。
+详见：[PRIVACY.md](./PRIVACY.md)、[SECURITY.md](./SECURITY.md)、[BROWSER_SUPPORT.md](./BROWSER_SUPPORT.md)。
 
-开发者也可以克隆仓库后直接加载项目目录：
+## 安装
 
-```bash
-git clone https://github.com/rowanjove/MarkClip.git
-cd MarkClip
-```
+1. 从 Release 下载 `markclip-1.5.0-chrome.zip` 或 `markclip-1.5.0-firefox.zip` 并解压。
+2. 在浏览器扩展管理页开启开发者模式，选择“加载已解压的扩展程序”。
+3. 升级旧版本时覆盖原目录并点击重新加载，不要先卸载，以保留本地设置；首次启动会自动迁移 `page2md:*` 与 `siteRules`。
 
-## 提取与导出
-
-- 正文提取优先使用 Mozilla Readability，适合文章和教程。
-- 区域选择支持一个或多个页面区域，适合只保留部分资料。
-- 整页转换适合页面归档，但结果仍取决于网页结构。
-- Markdown 可复制、下载为 `.md`，或通过 Obsidian URI 写入默认 vault。
-- 可批量导出当前窗口的多个网页标签页。
-- 预览区允许编辑 Markdown 和文件标题。
-- 自动添加 `title`、`source`、`date` frontmatter，便于追溯来源。
-- 图片可保留链接、移除链接，或尝试内嵌为 data URL；获取失败时保留原链接。
-- 支持浅色／深色界面，以及可拖动的页面悬浮入口。
-
-![页摘页面悬浮入口](visual-regression/floating-light.png)
-
-截图来自本地演示页面，不含用户数据。截图不是完整导出链路的验收证明。
-
-## 权限与隐私
-
-页摘不收集浏览记录，不使用远程服务器处理页面，也不接入统计分析服务。图片内嵌需要从图片来源获取可访问的资源；本地处理不等于所有操作都不发出网络请求。
-
-首次安装不会向所有网页注入脚本。打开弹窗可按需转换当前页面；开启“页面悬浮按钮”时，扩展会请求可选的网页访问权限。关闭该功能后可以撤销动态注册。
-
-完整说明见 [隐私政策](PRIVACY.md)。
-
-## 支持范围与限制
-
-当前发布目标是支持 Manifest V3 的 Chromium 浏览器，包括 Chrome 和 Edge。Firefox、Safari 尚未完成对应浏览器 API 和权限模型验证，不能按同样步骤保证可用。
-
-导出质量受页面 DOM、可访问图片和内容加载状态影响。图片内嵌的显示效果取决于目标 Markdown 工具；通过 Obsidian URI 导出需要本机具备相应处理程序。英文文档不代表扩展界面已完成英文本地化。
-
-[浏览器支持](BROWSER_SUPPORT.md) · [导出目标与限制](EXPORT_TARGETS.md) · [站点规则与模板](SITE_RULES.md)
-
-## 本地开发
-
-项目无需构建即可作为已解压扩展加载。开发工具需要 Node.js 和 npm；安装锁定依赖后运行：
+## 开发与验证
 
 ```bash
 npm ci
-npm run check
+npm run check:full
+npm run test:e2e:modern
+npm run release:verify
 ```
 
-检查包含语法、manifest 和回归测试。浏览器 E2E 使用本地 fixture；实际使用网页仍需单独验证。
+`release:verify` 会执行 legacy 回归、TypeScript/Vitest、Chrome/Firefox 构建、权限/许可证/安全检查、Chromium 与稳定 Chrome smoke、现代包和 ZIP 校验。开发模式使用 `npm run dev`；产物位于 `dist/`（不提交）。
 
-| 命令 | 用途 |
-| --- | --- |
-| `npm run test:e2e` | 运行浏览器 E2E 测试 |
-| `npm run check:security` | 第三方依赖检查与依赖审计 |
-| `npm run package` | 在 `dist/` 生成发布包 |
-| `npm run icons:generate` | 更新图标 |
-| `npm run store-assets:generate` | 更新商店素材 |
-| `npm run ui-review:capture` | 重拍 UI 截图 |
+更多说明：[DEVELOPMENT.md](./DEVELOPMENT.md)、[RELEASE.md](./RELEASE.md)、[DIAGNOSTICS.md](./DIAGNOSTICS.md)、[EXPORT_TARGETS.md](./EXPORT_TARGETS.md)。
 
-截图和浏览器测试需要 Playwright Chromium，可通过 `npx playwright install chromium` 安装。改动扩展代码后，在浏览器重新加载扩展并刷新目标网页。不要将 `dist/` 发布产物提交为源码。
+## 设计边界
 
-## 文档与贡献
-
-[贡献指南](CONTRIBUTING.md) · [设计规范](DESIGN_GUIDE.md) · [商店素材](STORE_LISTING.md) · [视觉验收记录](VISUAL_REVIEW.md)
-
-内部 `MarkClip*` 命名空间、`page2md:*` 设置键和 `markclip` 打包名称暂时保留，以兼容既有设置和工具。
-
-## 许可
-
-项目采用 [MIT License](LICENSE)。第三方组件的许可和署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+页摘只负责“采集 → 结构化 → 导出”，不提供账户、云数据库、书签库、稍后读、协作空间、云端搜索或自动爬虫平台。

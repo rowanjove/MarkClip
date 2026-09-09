@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
 
 if (process.env.RUN_LIVE_SMOKE !== '1') {
@@ -23,7 +24,8 @@ async function smoke(url) {
   const html = await response.text();
   const dom = new JSDOM(html, { url: response.url, runScripts: 'outside-only' });
   dom.window.chrome = { runtime: { sendMessage: async () => ({ success: true }) } };
-  for (const file of runtimeFiles) dom.window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+  const context = dom.getInternalVMContext();
+  for (const file of runtimeFiles) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   const result = await dom.window.MarkClipExtractor.buildMarkdown({ mode: 'main' });
   if (!result.markdown || result.charCount < 80) throw new Error(`${url} produced an unexpectedly short result.`);
   console.log(`${url} -> ${result.source}, ${result.charCount} chars, ${result.timings.totalMs} ms`);
