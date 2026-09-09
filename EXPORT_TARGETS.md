@@ -1,18 +1,16 @@
-# 导出目标
+# Export Adapter
 
-## Obsidian URI
+所有导出器只消费统一 `ClipResult`，不重新解析网页。每个目标都返回 `ExportResult`，并把认证、冲突、取消和网络错误映射为可执行提示。
 
-弹窗中的“Obsidian”按钮使用本地 `obsidian://new` URI，把当前预览内容直接交给 Obsidian 默认 vault。高级用户可以在 `chrome.storage.local` 写入：
+| 目标 | 结果 | 说明 |
+| --- | --- | --- |
+| Clipboard | Markdown | 用户主动复制 |
+| Markdown | `.md` | 浏览器下载 |
+| Bundle | `-bundle.zip` | Markdown、Metadata、Diagnostics、Assets 一起下载 |
+| ZIP | `.zip` | 可选 `original.html` Snapshot 的完整资料包 |
+| Obsidian | `obsidian://new` | 仅通过本机 URI，不经过页摘服务器 |
+| GitHub | API commit | 需用户配置安全 endpoint/repo/token；默认冲突，显式选择 overwrite 才更新已有文件 |
+| WebDAV | PUT | 需用户配置 endpoint 和凭据，路径经过 URL 编码 |
+| Joplin | `/notes` | 需用户配置本地 Web Clipper API endpoint/token |
 
-- `obsidianVault`：可选 vault 名称；为空时使用 Obsidian 默认 vault。
-- `obsidianPathTemplate`：文件路径模板，支持 `{{title}}`、`{{date}}`、`{{site}}`，默认 `{{title}}.md`。
-
-路径只保留安全文件名字符和层级，不执行脚本；该功能不会上传内容。
-
-## 批量标签页
-
-“批量导出”会临时请求可选网页访问权限，遍历当前窗口中最多 20 个 HTTP(S) 标签页，复用同一套 `ClipResult` 管线并逐个下载 Markdown。未开启悬浮按钮时，操作完成或失败后会撤销该权限；受限页面会跳过并在弹窗中报告失败数。
-
-## 图片内嵌
-
-“内嵌图片”默认关闭。开启后，页摘仅在当前页面上下文中尝试读取可访问的 HTTP(S) 图片并转成 data URL；跨域或失败的图片保留原链接。图片内嵌可能显著增大 Markdown 文件，应按需使用。
+远程目标默认关闭；token/password 不进入 Diagnostics、日志或设置导出。浏览器无法原子下载目录，因此 Bundle 使用和 ZIP 相同的确定性归档格式。
