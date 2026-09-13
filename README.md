@@ -1,48 +1,83 @@
-# 页摘 · Yezhai — 网页转 Markdown
+# 页摘 · Yezhai
 
-[简体中文](README.md) | [English](README.en.md)
+> **把杂乱的网页，一键变成干净纯粹的 Markdown。**
 
-页摘是本地优先的网页摘录与 Markdown 归档工具：网页只在用户设备上经过采集、正文识别、结构标准化，再输出 Markdown、Metadata、图片资源和可选 Snapshot。
+[简体中文](README.md) | [English](README.en.md) · [下载最新 Release](https://github.com/rowanjove/MarkClip/releases/latest) · [问题反馈](https://github.com/rowanjove/MarkClip/issues)
 
-当前版本：**v1.5.0**。产品名为「页摘」，仓库保留 `rowanjove/MarkClip`；`page2md:*` 旧设置键和 `markclip` 包名前缀继续保留一个兼容周期。
+页摘是一款专注于本地体验与知识归档的浏览器扩展（Chrome / Edge / Firefox）。专为 **Obsidian、Notion、Logseq** 等双链笔记与本地知识库用户打造，在浏览器本地完成正文净化、公式与代码高亮保留、图片打包及格式转换，不让网页杂质污染你的笔记。
 
-## 能力
+![页摘核心界面：正文提取与 Markdown 实时预览](docs/screenshots/01-popup-light-1280x800.png)
 
-- 正文、选区、整页和多段高亮批注；Smart（Recipe → Defuddle → Readability → Semantic）提取链。
-- CommonMark、GFM、Obsidian 三种渲染 profile；表格、代码、数学、脚注、Callout、相对 URL 和懒加载图片标准化。
-- Remote / Remove / Embed / Assets 四种图片模式；Assets 与 Metadata、Diagnostics、可选安全 Snapshot 组成独立 ZIP 资料包。
-- 声明式 Site Recipe（内置与用户 JSON/YAML 导入），不执行 JavaScript；安全 Template 2.0（变量、filter、条件、循环）。
-- 内置与可编辑自定义 Profile，把提取、渲染、图片、模板和导出目标组合成可复用预设。
-- Popup 快速保存、Options 高级设置、Chrome Side Panel / Firefox Sidebar、右键菜单和快捷键。
-- 批量任务队列支持并发、暂停、取消、失败重试；Clipboard、Markdown、Bundle、ZIP、Obsidian，以及 GitHub/WebDAV/Joplin Adapter。
-- AI 后处理为显式可选能力，默认关闭；失败时保留原始 Markdown，密钥不进入诊断或设置导出。
-- Chrome、Edge、Firefox 主路径；Safari 使用 Chrome MV3 输出通过 Safari Web Extension Converter 转换（见浏览器文档）。
+<details>
+<summary><b>查看深色模式与侧边栏截图</b></summary>
 
-## 隐私与权限
+| 深色模式弹窗 | 侧边栏常驻工作台 (Side Panel) |
+| :---: | :---: |
+| ![深色模式弹窗](docs/screenshots/02-popup-dark-1280x800.png) | ![侧边栏工作台](docs/screenshots/03-sidepanel-1280x800.png) |
 
-核心转换不需要账户或后端，默认仅使用 `activeTab` 按需读取当前页面；站点悬浮和全站悬浮分别请求当前 origin 或可选 `<all_urls>`，关闭时注销动态脚本并撤销权限。AI/远程 Exporter 只有在用户配置并主动调用时才发送数据。
+</details>
 
-详见：[PRIVACY.md](./PRIVACY.md)、[SECURITY.md](./SECURITY.md)、[BROWSER_SUPPORT.md](./BROWSER_SUPPORT.md)。
+---
 
-## 安装
+## 核心亮点
 
-1. 从 Release 下载 `markclip-1.5.0-chrome.zip` 或 `markclip-1.5.0-firefox.zip` 并解压。
-2. 在浏览器扩展管理页开启开发者模式，选择“加载已解压的扩展程序”。
-3. 升级旧版本时覆盖原目录并点击重新加载，不要先卸载，以保留本地设置；首次启动会自动迁移 `page2md:*` 与 `siteRules`。
+* 🧹 **智能正文提取**：自动剔除网页导航、广告横幅、侧边推荐及页脚杂音，精准保留文章标题、正文结构与层级标题。
+* 📐 **复杂排版保真**：完美转换数学公式（LaTeX / MathJax / KaTeX）、代码高亮与语言标签、嵌套列表、表格、引用块及注脚。
+* ✂️ **灵活摘录模式**：
+  * **智能全文**：一键提取整篇主要内容；
+  * **局部选区**：框选网页任意区块快速剪藏；
+  * **多段高亮拼接**：边读边划重点，自动合并生成阅读随笔。
+* 🖼️ **图片与资源包管理**：
+  * **远程链接**：保留原图 URL，保持文本轻盈；
+  * **独立资料包 (ZIP)**：一键将 Markdown 和所有引用的高清图片打包下载，防图片防盗链失效；
+  * **Base64 内嵌**：生成单文件自包含 Markdown。
+* 🪨 **无缝直达 Obsidian**：支持通过 Obsidian URI 一键将摘录内容存入指定的本地笔记库。
+* 🔒 **100% 离线与隐私优先**：无需注册任何账号，解析与格式转换全部在本机浏览器沙箱内完成，绝不上传页面内容。
 
-## 开发与验证
+---
+
+## 快速安装
+
+1. 从 [Releases 页面](https://github.com/rowanjove/MarkClip/releases/latest) 下载最新的安装包：
+   * Chrome / Edge: `markclip-x.x.x-chrome.zip`
+   * Firefox: `markclip-x.x.x-firefox.zip`
+2. 解压下载的 ZIP 文件到固定本地文件夹。
+3. 打开浏览器扩展管理页面（Chrome 地址栏输入 `chrome://extensions/`），开启右上角 **“开发者模式”**。
+4. 点击 **“加载已解压的扩展程序”**，选择刚刚解压的目录即可开始使用。
+
+> 💡 **升级提示**：升级新版本时，直接覆盖解压目录并在扩展页点击“重新加载”即可，无需卸载扩展，以保留你个性化的提取偏好与快捷键配置。
+
+---
+
+## 日常使用技巧
+
+* **快捷弹窗**：点击浏览器工具栏图标，或使用快捷键呼出，实时预览转换效果。
+* **侧边栏常驻 (Side Panel)**：在 Chrome / Edge 中开启侧边栏，适合多标签页集中查阅资料时边读边摘。
+* **网页内浮动工具**：选中文本即可浮现剪藏快捷按钮，碎片化记录更顺手。
+
+---
+
+## 本地开发与测试
 
 ```bash
+# 安装依赖
 npm ci
-npm run check:full
+
+# 启动开发热重载模式
+npm run dev
+
+# 运行质量门禁与端到端测试
 npm run test:e2e:modern
 npm run release:verify
 ```
 
-`release:verify` 会执行 legacy 回归、TypeScript/Vitest、Chrome/Firefox 构建、权限/许可证/安全检查、Chromium 与稳定 Chrome smoke、现代包和 ZIP 校验。开发模式使用 `npm run dev`；产物位于 `dist/`（不提交）。
+更多技术实现细节与扩展说明，请参阅：
+* [浏览器支持清单 (BROWSER_SUPPORT.md)](./BROWSER_SUPPORT.md)
+* [导出目标与 Obsidian 适配 (EXPORT_TARGETS.md)](./EXPORT_TARGETS.md)
+* [安全与权限设计 (SECURITY.md)](./SECURITY.md)
 
-更多说明：[DEVELOPMENT.md](./DEVELOPMENT.md)、[RELEASE.md](./RELEASE.md)、[DIAGNOSTICS.md](./DIAGNOSTICS.md)、[EXPORT_TARGETS.md](./EXPORT_TARGETS.md)。
+---
 
-## 设计边界
+## 开源协议
 
-页摘只负责“采集 → 结构化 → 导出”，不提供账户、云数据库、书签库、稍后读、协作空间、云端搜索或自动爬虫平台。
+本项目采用 [MIT License](LICENSE) 开源。
